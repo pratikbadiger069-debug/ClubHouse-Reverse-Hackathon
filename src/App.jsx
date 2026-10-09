@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import HeroSection from './components/HeroSection';
-import ProblemSection from './components/ProblemSection';
-import HowItWorksSection from './components/HowItWorksSection';
-import FeatureCardsSection from './components/FeatureCardsSection';
-import SampleRecapCardSection from './components/SampleRecapCardSection';
+import HomePage from './pages/HomePage';
+import RoomsPage from './pages/RoomsPage';
+import LibraryPage from './pages/LibraryPage';
+import NotFoundPage from './pages/NotFoundPage';
 import StartRoomModal from './components/StartRoomModal';
 import Footer from './components/Footer';
 
@@ -23,47 +23,54 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#2D231E] flex flex-col font-sans selection:bg-[#E05638]/20 selection:text-[#E05638]">
-      
-      {/* Navbar */}
-      <Navbar onOpenStartModal={handleOpenStartModal} />
-
-      {/* Main Content Sections */}
-      <main className="flex-grow">
+    <Router>
+      <div className="min-h-screen bg-[#FDFBF7] text-[#2D231E] flex flex-col font-sans selection:bg-[#E05638]/20 selection:text-[#E05638]">
         
-        {/* Section 1: Hero with two CTAs */}
-        <HeroSection 
-          onOpenStartModal={handleOpenStartModal} 
-          onExploreDemo={handleExploreDemo} 
+        {/* Sticky Navbar with /rooms and /library links */}
+        <Navbar onOpenStartModal={handleOpenStartModal} />
+
+        {/* Dynamic Route Pages */}
+        <main className="flex-grow">
+          <Routes>
+            <Route 
+              path="/" 
+              element={
+                <HomePage 
+                  onOpenStartModal={handleOpenStartModal} 
+                  onExploreDemo={handleExploreDemo} 
+                />
+              } 
+            />
+            <Route 
+              path="/rooms" 
+              element={
+                <RoomsPage 
+                  onOpenStartModal={handleOpenStartModal} 
+                />
+              } 
+            />
+            <Route 
+              path="/library" 
+              element={<LibraryPage />} 
+            />
+            {/* Catch-all 404 Route */}
+            <Route 
+              path="*" 
+              element={<NotFoundPage />} 
+            />
+          </Routes>
+        </main>
+
+        {/* Footer */}
+        <Footer onOpenStartModal={handleOpenStartModal} />
+
+        {/* Interactive Start Room Modal */}
+        <StartRoomModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
         />
 
-        {/* Section 2: Problem section */}
-        <ProblemSection 
-          onOpenStartModal={handleOpenStartModal} 
-        />
-
-        {/* Section 3: 4-Step How-It-Works */}
-        <HowItWorksSection 
-          onOpenStartModal={handleOpenStartModal} 
-        />
-
-        {/* Section 4: 4 Feature Cards */}
-        <FeatureCardsSection />
-
-        {/* Section 5: Sample Recap Card */}
-        <SampleRecapCardSection />
-
-      </main>
-
-      {/* Section 6: Footer */}
-      <Footer onOpenStartModal={handleOpenStartModal} />
-
-      {/* Interactive Start Room Modal */}
-      <StartRoomModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-      />
-
-    </div>
+      </div>
+    </Router>
   );
 }
