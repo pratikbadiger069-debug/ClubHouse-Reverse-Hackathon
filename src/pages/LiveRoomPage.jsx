@@ -17,17 +17,34 @@ export default function LiveRoomPage() {
     ? roomId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
     : "Spontaneous Live Audio Room";
 
+  // ── Load user profile from localStorage ─────────────────────────────────
+  const storedProfile = (() => {
+    try { return JSON.parse(localStorage.getItem('echo_user_profile')); } catch { return null; }
+  })();
+
+  // Guard: if no profile, redirect through onboarding and return here
+  useEffect(() => {
+    if (!storedProfile) {
+      sessionStorage.setItem('echo_return_to', `/room/${roomId}`);
+      navigate('/onboarding', { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const myName   = storedProfile?.name   || 'You (Host)';
+  const myAvatar = storedProfile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myName}`;
+
   // State Management
   const [role, setRole] = useState('host'); // 'host' | 'speaker' | 'listener'
   const [isMicOn, setIsMicOn] = useState(true);
-  const [timerSeconds, setTimerSeconds] = useState(140);
+  const [timerSeconds, setTimerSeconds] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
-  
-  // Speakers & Listeners
+
+  // Speakers & Listeners — user is always first (the host)
   const [speakers, setSpeakers] = useState([
-    { id: 'sp-1', name: "Elena Vance (Host)", role: "Host", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80", active: true },
-    { id: 'sp-2', name: "Marcus Chen", role: "Speaker", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80", active: false },
-    { id: 'sp-3', name: "Aria Patel", role: "Speaker", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80", active: false }
+    { id: 'sp-you', name: `${myName} (Host)`, role: 'Host', avatar: myAvatar, active: true },
+    { id: 'sp-2', name: 'Marcus Chen', role: 'Speaker', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', active: false },
+    { id: 'sp-3', name: 'Aria Patel', role: 'Speaker', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', active: false },
   ]);
 
   const [handRaisedQueue, setHandRaisedQueue] = useState([]);
