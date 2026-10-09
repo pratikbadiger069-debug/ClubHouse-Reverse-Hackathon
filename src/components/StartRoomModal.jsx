@@ -1,29 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { X, Mic, MicOff, Sparkles, Check, Radio, FileText, ArrowRight } from 'lucide-react';
+/**
+ * StartRoomModal.jsx — Room creation form
+ *
+ * FLOW:
+ *  1. Host fills in title, topic, language.
+ *  2. On submit → createRoom() in roomStore (generates a unique 10-char ID).
+ *  3. Navigates to /room/:id — the same ID used for presence & captions.
+ */
 
-// Slug a room title → a clean URL-friendly id
-function slugify(title) {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 60)
-    || 'my-room';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { X, Mic, Sparkles, Radio, Globe } from 'lucide-react';
+import { createRoom } from '../lib/roomStore';
+
+// ── helper: derive room ID slug from the roomStore entry ─────────────────
+function getProfileSafe() {
+  try { return JSON.parse(localStorage.getItem('echo_user_profile')); }
+  catch { return null; }
 }
+
+const LANGUAGES = ['English', 'Hindi', 'Spanish', 'French', 'Mandarin', 'German', 'Japanese'];
 
 export default function StartRoomModal({ isOpen, onClose }) {
   const navigate = useNavigate();
-  const [roomTitle, setRoomTitle] = useState('Spontaneous Design & AI Banter');
-  const [recapEnabled, setRecapEnabled] = useState(true);
+  const [title,    setTitle]    = useState('');
+  const [topic,    setTopic]    = useState('');
+  const [language, setLanguage] = useState('English');
+  const [loading,  setLoading]  = useState(false);
 
-  const handleLaunch = () => {
-    if (!roomTitle.trim()) return;
-    const slug = slugify(roomTitle.trim());
+  const handleLaunch = async () => {
+    if (!title.trim()) return;
+    setLoading(true);
+
+    // Ensure the user has a profile; if not, redirect to onboarding
+    const profile = getProfileSafe();
+    if (!profile) {
+      sessionStorage.setItem('echo_return_to_modal', 'start_room');
+      onClose();
+      navigate('/onboarding');
+      return;
+    }
+
+    // Create a real room in the store (nanoid ID)
+    const room = createRoom({
+      title:      title.trim(),
+      topic:      topic.trim(),
+      language,
+      hostId:     profile.username || profile.name,
+      hostName:   profile.name,
+      hostAvatar: profile.avatar,
+    });
+
     onClose();
-    navigate(`/room/${slug}`);
+    navigate(`/room/${room.id}`);
   };
 
   if (!isOpen) return null;
@@ -46,75 +74,88 @@ export default function StartRoomModal({ isOpen, onClose }) {
           <X className="w-5 h-5" />
         </button>
 
-        {/* Icon + heading */}
-        <div className="space-y-4">
+        {/* Header */}
+        <div className="space-y-1">
           <div className="w-12 h-12 rounded-2xl bg-[#FFF0EB] text-[#E05638] flex items-center justify-center">
             <Mic className="w-6 h-6" />
           </div>
-          <div>
-            <h3 id="start-room-title" className="font-heading font-extrabold text-2xl text-[#2D231E]">
-              Host an Echo Room
-            </h3>
-            <p className="text-sm text-[#6B5E57]">
-              Name your room, launch it, and share the link with anyone.
-            </p>
-          </div>
-
-          {/* Room title */}
-          <div className="space-y-2">
-            <label htmlFor="room-title-input" className="text-xs font-bold text-[#2D231E] uppercase tracking-wider block">
-              Room Title
-            </label>
-            <input
-              id="room-title-input"
-              type="text"
-              value={roomTitle}
-              onChange={e => setRoomTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLaunch()}
-              placeholder="Enter a topic…"
-              className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
-              autoFocus
-            />
-            {/* URL preview */}
-            <p className="text-[11px] text-[#9E8E85] font-mono pl-1">
-              /room/<span className="text-[#E05638] font-bold">{slugify(roomTitle.trim() || 'my-room')}</span>
-            </p>
-          </div>
-
-          {/* Echo AI toggle */}
-          <div className="bg-[#FFF8F3] p-4 rounded-2xl border border-[#FCD9CE] space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-[#2D231E] flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#E05638]" />
-                Echo AI Note-Taker &amp; Recap
-              </span>
-              <button
-                type="button"
-                onClick={() => setRecapEnabled(v => !v)}
-                className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${
-                  recapEnabled
-                    ? 'bg-[#ECFDF5] text-[#10B981]'
-                    : 'bg-[#F1F5F9] text-[#9E8E85]'
-                }`}
-              >
-                {recapEnabled ? 'ENABLED' : 'DISABLED'}
-              </button>
-            </div>
-            <p className="text-[#6B5E57]">
-              Echo will transcribe live audio and compile a shareable recap when the room ends.
-            </p>
-          </div>
-
-          {/* Launch button */}
-          <button
-            onClick={handleLaunch}
-            disabled={!roomTitle.trim()}
-            className="btn-primary w-full justify-center text-sm py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Radio className="w-4 h-4 animate-pulse" />
-            Launch Live Room
-          </button>
+          <h3 id="start-room-title" className="font-heading font-extrabold text-2xl text-[#2D231E] pt-1">
+            Start an Echo Room
+          </h3>
+          <p className="text-sm text-[#6B5E57]">
+            A private link is generated automatically — share it with anyone.
+          </p>
         </div>
+
+        {/* Room Title */}
+        <div className="space-y-1.5">
+          <label htmlFor="room-title" className="text-xs font-bold text-[#2D231E] uppercase tracking-wider block">
+            Room Title <span className="text-[#E05638]">*</span>
+          </label>
+          <input
+            id="room-title"
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLaunch()}
+            placeholder="e.g. FAANG Placement Prep Q&A"
+            autoFocus
+            className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+          />
+        </div>
+
+        {/* Topic */}
+        <div className="space-y-1.5">
+          <label htmlFor="room-topic" className="text-xs font-bold text-[#2D231E] uppercase tracking-wider block">
+            Topic / Tags
+          </label>
+          <input
+            id="room-topic"
+            type="text"
+            value={topic}
+            onChange={e => setTopic(e.target.value)}
+            placeholder="e.g. DSA, System Design, Placements"
+            className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+          />
+        </div>
+
+        {/* Language */}
+        <div className="space-y-1.5">
+          <label htmlFor="room-lang" className="text-xs font-bold text-[#2D231E] uppercase tracking-wider flex items-center gap-1.5">
+            <Globe className="w-3.5 h-3.5 text-[#F59E0B]" /> Room Language
+          </label>
+          <select
+            id="room-lang"
+            value={language}
+            onChange={e => setLanguage(e.target.value)}
+            className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+          >
+            {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <p className="text-[11px] text-[#9E8E85] pl-1">Sets the speech-recognition language for live captions.</p>
+        </div>
+
+        {/* Echo AI info */}
+        <div className="bg-[#FFF8F3] p-4 rounded-2xl border border-[#FCD9CE] flex items-start gap-3 text-xs">
+          <Sparkles className="w-4 h-4 text-[#E05638] shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold text-[#2D231E]">Echo AI is always on.</span>
+            <span className="text-[#6B5E57]"> Live captions and a full recap are generated automatically when the room ends.</span>
+          </div>
+        </div>
+
+        {/* Launch */}
+        <button
+          onClick={handleLaunch}
+          disabled={!title.trim() || loading}
+          className="btn-primary w-full justify-center text-sm py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading
+            ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+            : <Radio className="w-4 h-4 animate-pulse" />
+          }
+          {loading ? 'Creating room…' : 'Launch Live Room'}
+        </button>
 
       </div>
     </div>

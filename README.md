@@ -55,13 +55,17 @@ OPENAI_API_KEY=
 
 ## 🔍 Simulated vs. Real Systems
 
-| Feature | Real API Mode (With Keys) | Demo Mode Fallback (No Keys) |
+> **Key principle**: Live rooms are real. Demo / seed data only appears in the library, recap history, and recommendation feeds — never inside a live room you create.
+
+| Feature | Real (always on, no keys needed) | Real API Mode (with keys) |
 | :--- | :--- | :--- |
-| **Recap Engine** | Calls Gemini 1.5 Flash / OpenAI API in `/api/recap.js` | Returns structured JSON recap from seeded transcript |
-| **Live Captions** | Native Web Speech API (`SpeechRecognition`) | Simulated transcript chunk generator button |
-| **Audio Rooms** | LiveKit / Daily token generation in `/api/token.js` | Simulated audio session with active mic feedback |
-| **Database** | PostgreSQL & Supabase Realtime WebSocket client | In-memory seeded store (`seedData.js`) |
-| **Live Translation** | Machine translation in `/api/translate.js` | Instant language prefix translator |
+| **Private room creation** | `nanoid` ID, isolated per room, roomStore presence bus | Supabase row + Realtime Presence |
+| **Mic level waveform** | Web Audio API `AnalyserNode` — proves mic is working | ← same |
+| **Live captions** | Web Speech API per-speaker, broadcast via roomStore bus | Supabase Realtime Broadcast channel |
+| **Room presence** | In-memory pub-sub (roomStore.js) — zero fake participants | Supabase Realtime Presence |
+| **Recap engine** | Structured fallback from captured transcript | Calls Gemini / OpenAI in `/api/recap.js` |
+| **Audio rooms** | Mock token flow | LiveKit / Daily token in `/api/token.js` |
+| **Library / feed** | Seeded demo data (`seedData.js`) | PostgreSQL via Supabase |
 
 ---
 

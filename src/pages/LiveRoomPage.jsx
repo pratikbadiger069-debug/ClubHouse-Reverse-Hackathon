@@ -1,546 +1,845 @@
-import React, { useState, useEffect, useRef } from 'react';
+/**
+ * LiveRoomPage.jsx — Real-time private audio room
+ *
+ * ARCHITECTURE:
+ *  - Room state lives in roomStore (in-memory pub-sub, swappable with Supabase Realtime)
+ *  - Mic audio → useMicLevel hook → MicWave bars (proves mic works)
+ *  - Speech → useLiveCaptions hook → broadcastCaption() → subscribeCaptions()
+ *  - Presence: joinRoom() / updateMember() / leaveRoom() in roomStore
+ *
+ * TWO-WINDOW DEMO:
+ *  Window A: creates room via StartRoomModal → arrives here as host
+ *  Window B: opens /room/:id → hits RoomLobby → joins as guest → sees captions
+ *  NOTE: roomStore is per-tab (no SharedWorker in demo). In production, replace
+ *  with Supabase Realtime Presence + Broadcast channel.
+ *
+ * ID FLOW:
+ *  room.id (nanoid, 10 chars) = DB row ID = audio room name = realtime channel name
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Mic, MicOff, Radio, Copy, Check, Sparkles, X, Share2, Users, FileText, Send, ArrowLeft, Zap, Volume2, Hand, Pin, HelpCircle, Globe, BarChart2, CheckCircle2 } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import {
+  Mic, MicOff, X, Share2, Copy, Check, Sparkles, Users, FileText,
+  ArrowLeft, Hand, Globe, Radio, AlertCircle, RefreshCw, Zap
+} from 'lucide-react';
 import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
-import Modal from '../components/ui/Modal';
-import { fetchAudioRoomToken } from '../lib/audioService';
+import MicWave, { SpeakingRing } from '../components/MicWave';
+import { useMicLevel } from '../hooks/useMicLevel';
+import { useLiveCaptions } from '../hooks/useLiveCaptions';
+import {
+  getRoom, joinRoom, updateMember, removeMember, endRoom,
+  broadcastHandRaise, subscribeHandRaises, subscribeCaptions, broadcastCaption,
+} from '../lib/roomStore';
 
-export default function LiveRoomPage() {
-  const { id: roomIdParam } = useParams();
-  const navigate = useNavigate();
+// ── Helpers ────────────────────────────────────────────────────────────────
+function getProfileSafe() {
+  try { return JSON.parse(localStorage.getItem('echo_user_profile')); }
+  catch { return null; }
+}
 
-  const roomId = roomIdParam || 'spontaneous-room';
-  const formattedTitle = roomId
-    ? roomId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-    : "Spontaneous Live Audio Room";
+function getGuestSafe() {
+  try { return JSON.parse(localStorage.getItem('echo_guest')); }
+  catch { return null; }
+}
 
-  // ── Load user profile from localStorage ─────────────────────────────────
-  const storedProfile = (() => {
-    try { return JSON.parse(localStorage.getItem('echo_user_profile')); } catch { return null; }
-  })();
+// Map speaker name → a stable colour for captions
+const CAPTION_COLORS = ['#E05638', '#2563EB', '#059669', '#7C3AED', '#D97706'];
+const colorCache = {};
+let colorIndex = 0;
+function colorForSpeaker(name) {
+  if (!colorCache[name]) {
+    colorCache[name] = CAPTION_COLORS[colorIndex % CAPTION_COLORS.length];
+    colorIndex++;
+  }
+  return colorCache[name];
+}
 
-  // Guard: if no profile, redirect through onboarding and return here
-  useEffect(() => {
-    if (!storedProfile) {
-      sessionStorage.setItem('echo_return_to', `/room/${roomId}`);
-      navigate('/onboarding', { replace: true });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+// Language code map for SpeechRecognition
+const LANG_CODES = {
+  English: 'en-US', Hindi: 'hi-IN', Spanish: 'es-ES',
+  French: 'fr-FR', Mandarin: 'zh-CN', German: 'de-DE', Japanese: 'ja-JP',
+};
 
-  const myName   = storedProfile?.name   || 'You (Host)';
-  const myAvatar = storedProfile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myName}`;
+// ── RoomLobby ──────────────────────────────────────────────────────────────
+/**
+ * Shown when a guest opens /room/:id.
+ * Collects display name, checks mic permission, then calls onJoin.
+ */
+function RoomLobby({ room, onJoin }) {
+  const [name,    setName]    = useState('');
+  const [stage,   setStage]   = useState('name'); // 'name' | 'mic' | 'ready'
+  const [micOk,   setMicOk]   = useState(false);
+  const [micErr,  setMicErr]  = useState(null);
 
-  // State Management
-  const [role, setRole] = useState('host'); // 'host' | 'speaker' | 'listener'
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [copiedLink, setCopiedLink] = useState(false);
-
-  // Speakers & Listeners — user is always first (the host)
-  const [speakers, setSpeakers] = useState([
-    { id: 'sp-you', name: `${myName} (Host)`, role: 'Host', avatar: myAvatar, active: true },
-    { id: 'sp-2', name: 'Marcus Chen', role: 'Speaker', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', active: false },
-    { id: 'sp-3', name: 'Aria Patel', role: 'Speaker', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', active: false },
-  ]);
-
-  const [handRaisedQueue, setHandRaisedQueue] = useState([]);
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-
-  // Floating Reactions State
-  const [floatingReactions, setFloatingReactions] = useState([]);
-  const [pinnedMoments, setPinnedMoments] = useState([
-    { time: "01:45", text: "Discussion started on fluid design tokens" }
-  ]);
-
-  // Live Captions & Web Speech API
-  const [interimText, setInterimText] = useState('');
-  const [transcriptLines, setTranscriptLines] = useState([
-    { id: 1, speaker: "Marcus Chen", text: "Welcome everyone! Echo AI is active.", time: "01:30" },
-    { id: 2, speaker: "Elena Vance", text: "Let's review our fluid typography tokens for the Q4 release.", time: "02:10" }
-  ]);
-
-  const [speechSupported, setSpeechSupported] = useState(true);
-  const [customSpeakInput, setCustomSpeakInput] = useState('');
-
-  // Live Translation State
-  const [targetLanguage, setTargetLanguage] = useState('English');
-  const [translatedLines, setTranslatedLines] = useState({});
-
-  // Polls & Quizzes State
-  const [activePoll, setActivePoll] = useState({
-    id: "poll-1",
-    question: "Should we make Notion export automatic on room exit?",
-    options: ["Yes, auto sync", "No, prompt first", "Undecided"],
-    votes: [14, 5, 2],
-    status: "active",
-    correctIndex: null
-  });
-  const [userVotedIndex, setUserVotedIndex] = useState(null);
-  const [showCreatePollModal, setShowCreatePollModal] = useState(false);
-  const [newPollQuestion, setNewPollQuestion] = useState('');
-  const [newPollOptions, setNewPollOptions] = useState(['Option 1', 'Option 2']);
-
-  // Timer Effect
-  useEffect(() => {
-    const timer = setInterval(() => setTimerSeconds(prev => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Web Speech API Integration
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSpeechSupported(false);
-      return;
-    }
-
+  // Mic permission check
+  const checkMic = async () => {
+    setMicErr(null);
     try {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            const final = event.results[i][0].transcript;
-            addTranscriptLine("You (Host)", final);
-            setInterimText('');
-          } else {
-            interim += event.results[i][0].transcript;
-          }
-        }
-        setInterimText(interim);
-      };
-
-      recognition.onerror = (err) => {
-        console.warn("Speech recognition error:", err);
-      };
-
-      if (isMicOn && (role === 'host' || role === 'speaker')) {
-        recognition.start();
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      s.getTracks().forEach(t => t.stop()); // we don't need the stream yet
+      setMicOk(true);
+      setStage('ready');
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        setMicErr('Mic permission denied — you can still join as a listener.');
+      } else if (err.name === 'NotFoundError') {
+        setMicErr('No microphone found — you can still join as a listener.');
+      } else {
+        setMicErr(`Mic error: ${err.message}. You can still join as a listener.`);
       }
-
-      return () => recognition.stop();
-    } catch (e) {
-      setSpeechSupported(false);
+      setStage('ready');
     }
-  }, [isMicOn, role]);
-
-  const addTranscriptLine = (speaker, text) => {
-    const mins = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
-    const secs = (timerSeconds % 60).toString().padStart(2, '0');
-    setTranscriptLines(prev => [
-      ...prev,
-      { id: Date.now(), speaker, text, time: `${mins}:${secs}` }
-    ]);
-  };
-
-  // Reaction Emojis
-  const handleTriggerReaction = (emoji) => {
-    const newId = Date.now() + Math.random();
-    setFloatingReactions(prev => [...prev, { id: newId, emoji, left: Math.random() * 80 + 10 }]);
-    setTimeout(() => {
-      setFloatingReactions(prev => prev.filter(r => r.id !== newId));
-    }, 2000);
-  };
-
-  // Pin Moment Action
-  const handlePinMoment = () => {
-    const mins = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
-    const secs = (timerSeconds % 60).toString().padStart(2, '0');
-    setPinnedMoments(prev => [
-      ...prev,
-      { time: `${mins}:${secs}`, text: transcriptLines[transcriptLines.length - 1]?.text || "Pinned Moment" }
-    ]);
-  };
-
-  // Raise Hand
-  const handleRaiseHand = () => {
-    setHandRaisedQueue(prev => [...prev, { id: Date.now(), name: "Listener Student" }]);
-    setShowApprovalModal(true);
-  };
-
-  const handleApproveSpeaker = (person) => {
-    setSpeakers(prev => [...prev, { id: person.id, name: person.name, role: "Speaker", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80", active: false }]);
-    setHandRaisedQueue(prev => prev.filter(p => p.id !== person.id));
-    setShowApprovalModal(false);
-  };
-
-  // Poll Voting
-  const handleVotePoll = (index) => {
-    if (userVotedIndex !== null) return;
-    setUserVotedIndex(index);
-    const updatedVotes = [...activePoll.votes];
-    updatedVotes[index] += 1;
-    setActivePoll({ ...activePoll, votes: updatedVotes });
-  };
-
-  // Machine Translation Trigger
-  const handleTranslateLanguage = async (lang) => {
-    setTargetLanguage(lang);
-    if (lang === 'English') return;
-
-    // Simulate batch translation API call
-    const translatedObj = {};
-    for (const line of transcriptLines) {
-      translatedObj[line.id] = `[${lang.slice(0, 2).toUpperCase()}] ${line.text}`;
-    }
-    setTranslatedLines(translatedObj);
-  };
-
-  // End Room & Generate Recap Call
-  const handleEndRoom = async () => {
-    try {
-      await fetch('/api/recap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId,
-          roomTitle: formattedTitle,
-          transcript: transcriptLines,
-          pins: pinnedMoments.map(p => p.time),
-          reactions: floatingReactions
-        })
-      });
-    } catch (e) {
-      console.warn("Recap generation API fallback");
-    }
-    navigate(`/recap/recap-101`);
-  };
-
-  const formatTimer = (s) => {
-    const mins = Math.floor(s / 60).toString().padStart(2, '0');
-    const secs = (s % 60).toString().padStart(2, '0');
-    return `${mins}:${secs}`;
   };
 
   return (
-    <div className="py-8 bg-[#FDFBF7] min-h-screen relative overflow-hidden">
-      
-      {/* Floating Emojis Animation Container */}
-      <div className="fixed inset-0 pointer-events-none z-50">
-        {floatingReactions.map(r => (
-          <div 
-            key={r.id}
-            style={{ left: `${r.left}%` }}
-            className="absolute bottom-20 text-3xl animate-bounce transition-all duration-1000"
-          >
-            {r.emoji}
+    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-[#F0E5DC] space-y-6">
+
+        {/* Room info */}
+        <div className="text-center space-y-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ECFDF5] text-[#059669] text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-[#059669] animate-pulse" />
+            LIVE
+          </span>
+          <h1 className="font-heading font-extrabold text-2xl text-[#2D231E]">{room.title}</h1>
+          {room.topic && <p className="text-sm text-[#6B5E57]">{room.topic}</p>}
+          <p className="text-xs text-[#9E8E85]">Hosted by {room.hostName}</p>
+        </div>
+
+        {/* Step 1: Enter name */}
+        {stage === 'name' && (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#2D231E] uppercase tracking-wider block">
+                Your display name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && name.trim() && setStage('mic')}
+                placeholder="e.g. Priya M."
+                autoFocus
+                className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+              />
+            </div>
+            <Button
+              variant="primary" size="lg"
+              className="w-full justify-center"
+              disabled={!name.trim()}
+              onClick={() => setStage('mic')}
+            >
+              Continue
+            </Button>
           </div>
+        )}
+
+        {/* Step 2: Mic check */}
+        {stage === 'mic' && (
+          <div className="space-y-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-[#FFF0EB] flex items-center justify-center mx-auto">
+              <Mic className="w-8 h-8 text-[#E05638]" />
+            </div>
+            <div>
+              <p className="font-bold text-[#2D231E]">Allow microphone access?</p>
+              <p className="text-sm text-[#6B5E57] mt-1">You'll join as a listener and can request to speak later.</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button variant="primary" size="lg" className="w-full justify-center" onClick={checkMic}>
+                <Mic className="w-4 h-4" /> Allow & Join
+              </Button>
+              <button
+                onClick={() => { setMicOk(false); setStage('ready'); }}
+                className="text-sm text-[#6B5E57] underline underline-offset-2"
+              >
+                Skip — join as listener only
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Ready to join */}
+        {stage === 'ready' && (
+          <div className="space-y-4">
+            {micErr && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex gap-2 text-xs text-amber-800">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                {micErr}
+              </div>
+            )}
+            {micOk && !micErr && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex gap-2 text-xs text-emerald-800">
+                <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                Microphone is ready!
+              </div>
+            )}
+            <Button
+              variant="primary" size="lg"
+              className="w-full justify-center"
+              onClick={() => onJoin({ name: name.trim(), micGranted: micOk })}
+            >
+              <Radio className="w-4 h-4 animate-pulse" />
+              Join Room
+            </Button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+// ── CaptionPanel ────────────────────────────────────────────────────────────
+function CaptionPanel({ lines, interims, speechSupported }) {
+  const bottomRef       = useRef(null);
+  const panelRef        = useRef(null);
+  const [autoscroll, setAutoscroll] = useState(true);
+
+  // Auto-scroll to bottom unless user scrolled up manually
+  useEffect(() => {
+    if (autoscroll) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [lines, interims, autoscroll]);
+
+  const handleScroll = () => {
+    if (!panelRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = panelRef.current;
+    const nearBottom = scrollHeight - scrollTop - clientHeight < 80;
+    setAutoscroll(nearBottom);
+  };
+
+  const allLines = [
+    ...lines.map(l => ({ ...l, isInterim: false })),
+    ...Object.values(interims).map(l => ({ ...l, isInterim: true })),
+  ].sort((a, b) => a.ts - b.ts);
+
+  // Last 2-3 "large" caption lines (subtitle style)
+  const recentFinals = lines.slice(-3);
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+
+      {/* Subtitle-style large captions (last 3 final lines) */}
+      <div className="bg-[#2D231E]/90 rounded-2xl p-4 mb-3 min-h-[72px] flex flex-col justify-end">
+        {recentFinals.length === 0 && (
+          <p className="text-[#9E8E85] text-sm italic text-center">
+            {speechSupported ? 'Captions will appear here…' : 'Live captions need Chrome or Edge'}
+          </p>
+        )}
+        {recentFinals.map(l => (
+          <p key={l.lineId} className="text-white font-medium text-sm leading-snug">
+            <span style={{ color: colorForSpeaker(l.speakerName) }} className="font-bold text-xs mr-1.5">
+              {l.speakerName}
+            </span>
+            {l.text}
+          </p>
+        ))}
+        {/* Current interim (if any) */}
+        {Object.values(interims).map(il => (
+          <p key={il.lineId} className="text-[#9E8E85] text-sm italic leading-snug">
+            <span style={{ color: colorForSpeaker(il.speakerName) }} className="font-bold text-xs mr-1.5 opacity-70">
+              {il.speakerName}
+            </span>
+            {il.text}…
+          </p>
         ))}
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        
-        {/* Room Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#F0E5DC]">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse" />
-              <span className="text-xs font-bold text-[#10B981] uppercase tracking-wider">LIVE STAGE</span>
-              <span className="font-mono text-xs text-[#9E8E85]">{formatTimer(timerSeconds)}</span>
-            </div>
-            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-[#2D231E]">
-              {formattedTitle}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <Button 
-              variant="secondary" 
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setCopiedLink(true);
-                setTimeout(() => setCopiedLink(false), 2000);
-              }}
-              icon={copiedLink ? Check : Share2}
+      {/* Scrollable history */}
+      <div
+        ref={panelRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto space-y-1.5 pr-1"
+        style={{ maxHeight: 220 }}
+      >
+        {allLines.map((l, i) => (
+          <div key={l.lineId + i} className={`flex gap-2 text-xs ${l.isInterim ? 'opacity-60' : ''}`}>
+            <span
+              className="font-bold shrink-0 mt-px"
+              style={{ color: colorForSpeaker(l.speakerName) }}
             >
-              {copiedLink ? 'Copied Link!' : 'Invite Link'}
-            </Button>
+              {l.speakerName.split(' ')[0]}
+            </span>
+            <span className={l.isInterim ? 'text-[#9E8E85] italic' : 'text-[#2D231E]'}>
+              {l.text}{l.isInterim ? '…' : ''}
+            </span>
+          </div>
+        ))}
+        {!autoscroll && (
+          <button
+            onClick={() => { setAutoscroll(true); bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
+            className="text-[10px] font-bold text-[#E05638] bg-[#FFF0EB] px-2 py-1 rounded-full sticky bottom-0"
+          >
+            ↓ Jump to latest
+          </button>
+        )}
+        <div ref={bottomRef} />
+      </div>
 
-            {role === 'host' ? (
-              <Button variant="danger" size="sm" onClick={handleEndRoom} icon={X}>
-                End Room & Generate Recap
-              </Button>
-            ) : (
-              <Button variant="secondary" size="sm" onClick={() => navigate('/rooms')}>
-                Leave Room
-              </Button>
-            )}
+      {/* Reconnecting banner */}
+      {/* passed as prop if needed */}
+    </div>
+  );
+}
+
+// ── Main LiveRoomPage component ────────────────────────────────────────────
+export default function LiveRoomPage() {
+  const { id: roomId } = useParams();
+  const navigate = useNavigate();
+
+  // ── Room lookup ─────────────────────────────────────────────────────────
+  const room = getRoom(roomId);
+
+  // ── Current user identity ───────────────────────────────────────────────
+  const profile = getProfileSafe();
+  const guest   = getGuestSafe();
+  const me = profile || guest;
+
+  // Determine if this user is the host
+  const isHost = room && me && (me.username === room.hostId || me.name === room.hostName);
+
+  // ── Lobby state ─────────────────────────────────────────────────────────
+  // Show lobby if user has no identity at all (cold link)
+  const [inLobby, setInLobby] = useState(!me && !!room);
+
+  // ── Room presence ───────────────────────────────────────────────────────
+  const [members, setMembers] = useState([]);
+  const [handQueue, setHandQueue] = useState([]);
+  const leaveRef = useRef(null);
+
+  // ── Mic + captions ──────────────────────────────────────────────────────
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [role, setRole] = useState(isHost ? 'host' : 'listener');
+  const canSpeak = role === 'host' || role === 'speaker';
+
+  const { level, bands, error: micError, silenceWarning } = useMicLevel(isMicOn && canSpeak);
+  const [captionStatus, setCaptionStatus] = useState('idle');
+
+  // Caption lines (final) + interims map (keyed by lineId, updated in place)
+  const [captionLines,   setCaptionLines]   = useState([]);
+  const [captionInterims, setCaptionInterims] = useState({}); // lineId → line
+
+  // Caption speech recognition
+  const langCode = LANG_CODES[room?.language] || 'en-US';
+  useLiveCaptions({
+    roomId,
+    speakerId: me?.username || me?.name || 'guest',
+    speakerName: me?.name || 'Guest',
+    enabled: isMicOn && canSpeak,
+    language: langCode,
+    onStatusChange: setCaptionStatus,
+  });
+
+  // ── Timer ───────────────────────────────────────────────────────────────
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  useEffect(() => {
+    if (inLobby) return;
+    const t = setInterval(() => setTimerSeconds(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [inLobby]);
+
+  // ── Invite link copy ────────────────────────────────────────────────────
+  const [copied, setCopied] = useState(false);
+  const inviteUrl = `${window.location.origin}/room/${roomId}`;
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
+
+  const shareLink = () => {
+    if (navigator.share) {
+      navigator.share({ title: room?.title || 'Echo Room', url: inviteUrl });
+    } else {
+      copyLink();
+    }
+  };
+
+  // ── Join presence ───────────────────────────────────────────────────────
+  const doJoin = useCallback((overrideName = null, overrideRole = null) => {
+    if (!room) return;
+    const userId = me?.username || me?.name || `guest-${Date.now()}`;
+    const memberRole = overrideRole || role;
+    leaveRef.current?.(); // leave previous if any
+    leaveRef.current = joinRoom(roomId, {
+      userId,
+      name:   overrideName || me?.name || 'Guest',
+      avatar: me?.avatar   || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+      role:   memberRole,
+      micOn:  isMicOn,
+      speaking: false,
+    }, ({ members: m }) => setMembers(m));
+  }, [room, roomId, me, role, isMicOn]);
+
+  // Join when not in lobby anymore
+  useEffect(() => {
+    if (!inLobby && room) doJoin();
+    return () => leaveRef.current?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inLobby]);
+
+  // ── Update presence when mic/speaking changes ───────────────────────────
+  useEffect(() => {
+    if (!me || !room) return;
+    const userId = me?.username || me?.name;
+    const speaking = level > 8; // threshold for "speaking"
+    updateMember(roomId, userId, { micOn: isMicOn, speaking });
+  }, [isMicOn, level, roomId, me, room]);
+
+  // ── Caption subscription ────────────────────────────────────────────────
+  useEffect(() => {
+    const unsub = subscribeCaptions(roomId, (line) => {
+      if (line.isFinal) {
+        setCaptionLines(prev => {
+          // Remove the interim version of this line (same lineId) then add final
+          const without = prev.filter(l => l.lineId !== line.lineId);
+          return [...without, line];
+        });
+        setCaptionInterims(prev => {
+          const n = { ...prev };
+          delete n[line.lineId];
+          return n;
+        });
+      } else {
+        // Update interim in place (no duplicate lines)
+        setCaptionInterims(prev => ({ ...prev, [line.lineId]: line }));
+      }
+    });
+    return unsub;
+  }, [roomId]);
+
+  // ── Hand-raise subscription ─────────────────────────────────────────────
+  useEffect(() => {
+    const unsub = subscribeHandRaises(roomId, (event) => {
+      if (event.type === 'raise') {
+        setHandQueue(prev => [...prev.filter(h => h.userId !== event.userId), event]);
+      } else if (event.type === 'lower' || event.type === 'approve') {
+        setHandQueue(prev => prev.filter(h => h.userId !== event.userId));
+      }
+    });
+    return unsub;
+  }, [roomId]);
+
+  // ── Handlers ────────────────────────────────────────────────────────────
+  const toggleMic = () => setIsMicOn(v => !v);
+
+  const handleRaiseHand = () => {
+    broadcastHandRaise(roomId, {
+      type: 'raise',
+      userId: me?.username || me?.name,
+      name:   me?.name || 'Guest',
+      avatar: me?.avatar,
+    });
+  };
+
+  const approveHand = (person) => {
+    updateMember(roomId, person.userId, { role: 'speaker' });
+    broadcastHandRaise(roomId, { type: 'approve', userId: person.userId });
+    setHandQueue(prev => prev.filter(h => h.userId !== person.userId));
+  };
+
+  const demoteMember = (userId) => {
+    updateMember(roomId, userId, { role: 'listener', micOn: false });
+  };
+
+  const kickMember = (userId) => {
+    removeMember(roomId, userId);
+  };
+
+  const handleEndRoom = () => {
+    endRoom(roomId);
+    // Navigate to a recap stub (the real recap pipeline picks it up)
+    navigate(`/recap/recap-${roomId}`);
+  };
+
+  const handleLobbyJoin = ({ name, micGranted }) => {
+    // Save a guest identity
+    const guest = { name, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}` };
+    localStorage.setItem('echo_guest', JSON.stringify(guest));
+    setInLobby(false);
+    setIsMicOn(micGranted);
+    doJoin(name, 'listener');
+  };
+
+  const formatTimer = (s) => {
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  };
+
+  // ── Edge cases ──────────────────────────────────────────────────────────
+  // Room doesn't exist in the store (cold reload or ended)
+  if (!room) {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+        <div className="max-w-sm text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-[#FFF0EB] flex items-center justify-center mx-auto">
+            <Radio className="w-8 h-8 text-[#E05638] opacity-40" />
+          </div>
+          <h1 className="font-heading font-extrabold text-2xl text-[#2D231E]">Room not found</h1>
+          <p className="text-sm text-[#6B5E57]">
+            This room may have ended or the link is invalid.
+          </p>
+          <div className="flex flex-col gap-3 pt-2">
+            <Link to="/library" className="btn-primary justify-center text-sm py-3">
+              <FileText className="w-4 h-4" /> Browse Recaps
+            </Link>
+            <Link to="/home" className="btn-secondary justify-center text-sm py-3">
+              ← Back to Home
+            </Link>
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* Stage Grid: Left Audio Stage + Right Live Captions & Polls */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* Left Column: Stage & Speakers */}
-          <div className="lg:col-span-7 space-y-6">
-            
-            {/* Speakers Avatars Grid */}
-            <Card variant="default" className="space-y-6 p-6">
+  // Room has ended
+  if (room.status === 'ended') {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+        <div className="max-w-sm text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-[#ECFDF5] flex items-center justify-center mx-auto">
+            <Check className="w-8 h-8 text-[#059669]" />
+          </div>
+          <h1 className="font-heading font-extrabold text-2xl text-[#2D231E]">Room ended</h1>
+          <p className="text-sm text-[#6B5E57]">The host ended the session. The recap is being generated.</p>
+          <Link
+            to={`/recap/recap-${roomId}`}
+            className="btn-primary justify-center text-sm py-3 inline-flex"
+          >
+            <FileText className="w-4 h-4" /> View Recap
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Lobby for guests (no profile)
+  if (inLobby) {
+    return <RoomLobby room={room} onJoin={handleLobbyJoin} />;
+  }
+
+  // ── Main room UI ────────────────────────────────────────────────────────
+  const hosts    = members.filter(m => m.role === 'host');
+  const speakers = members.filter(m => m.role === 'speaker');
+  const listeners= members.filter(m => m.role === 'listener');
+  const speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  return (
+    <div className="min-h-screen bg-[#FDFBF7] py-6 px-4">
+      <div className="max-w-6xl mx-auto space-y-6">
+
+        {/* ── Room Header ──────────────────────────────────────────────── */}
+        <div className="bg-white rounded-3xl border border-[#F0E5DC] p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+
+            {/* Back + Live indicator + Title */}
+            <div className="flex-1 min-w-0 space-y-1">
+              <Link to="/rooms" className="text-xs text-[#9E8E85] hover:text-[#E05638] flex items-center gap-1 mb-1">
+                <ArrowLeft className="w-3.5 h-3.5" /> Rooms
+              </Link>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-[#059669] bg-[#ECFDF5] px-2.5 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-[#059669] animate-pulse" />
+                  LIVE · {formatTimer(timerSeconds)}
+                </span>
+                {room.language !== 'English' && (
+                  <span className="text-xs text-[#6B5E57] flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5" /> {room.language}
+                  </span>
+                )}
+              </div>
+              <h1 className="font-heading font-extrabold text-xl sm:text-2xl text-[#2D231E] truncate">
+                {room.title}
+              </h1>
+              {room.topic && (
+                <p className="text-xs text-[#6B5E57]">{room.topic}</p>
+              )}
+            </div>
+
+            {/* Invite link actions */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <div className="bg-[#FAF5F0] border border-[#F0E5DC] rounded-xl px-3 py-2 flex items-center gap-2 min-w-0">
+                <span className="text-[11px] font-mono text-[#9E8E85] truncate max-w-[140px]">
+                  /room/{roomId}
+                </span>
+                <button
+                  onClick={copyLink}
+                  aria-label="Copy invite link"
+                  className="shrink-0 text-[#E05638] hover:text-[#C9472B]"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <button
+                onClick={shareLink}
+                className="p-2.5 rounded-xl bg-[#FFF0EB] text-[#E05638] hover:bg-[#FFE4D6] transition-colors"
+                aria-label="Share room"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+              {isHost && (
+                <Button variant="danger" size="sm" onClick={handleEndRoom} icon={X}>
+                  End Room
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Invite link banner (prominent) */}
+          {copied && (
+            <div className="mt-3 bg-[#ECFDF5] border border-emerald-200 rounded-xl px-4 py-2 text-xs text-emerald-800 font-medium flex items-center gap-2">
+              <Check className="w-3.5 h-3.5" />
+              Link copied! Share it so others can join.
+            </div>
+          )}
+        </div>
+
+        {/* ── Hand-raise queue (host only) ─────────────────────────────── */}
+        {isHost && handQueue.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
+            <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+              <Hand className="w-4 h-4" /> Raised hands
+            </p>
+            {handQueue.map(person => (
+              <div key={person.userId} className="flex items-center justify-between gap-3">
+                <span className="text-sm text-[#2D231E] font-medium">{person.name}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => approveHand(person)}
+                    className="text-xs bg-[#E05638] text-white px-3 py-1.5 rounded-full font-bold hover:bg-[#C9472B]"
+                  >
+                    Allow to speak
+                  </button>
+                  <button
+                    onClick={() => broadcastHandRaise(roomId, { type: 'lower', userId: person.userId })}
+                    className="text-xs text-[#6B5E57] px-3 py-1.5 rounded-full border border-[#F0E5DC] hover:bg-[#FAF5F0]"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* ── Left column: Participants ─────────────────────────────── */}
+          <div className="lg:col-span-1 space-y-4">
+
+            {/* Stage (host + speakers) */}
+            <Card variant="default" className="p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-heading font-bold text-lg text-[#2D231E] flex items-center gap-2">
-                  <Users className="w-5 h-5 text-[#E05638]" />
-                  Active Stage ({speakers.length})
-                </h3>
-                <span className="text-xs font-bold text-[#9E8E85]">Role: {role.toUpperCase()}</span>
+                <h2 className="font-heading font-bold text-sm text-[#2D231E] flex items-center gap-2">
+                  <Mic className="w-4 h-4 text-[#E05638]" /> On Stage
+                </h2>
+                <Badge variant="terracotta" size="sm">{hosts.length + speakers.length}</Badge>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {speakers.map(sp => (
-                  <div key={sp.id} className="bg-[#FAF4EE] p-4 rounded-2xl border border-[#F0E5DC] flex flex-col items-center text-center space-y-2">
-                    <Avatar src={sp.avatar} name={sp.name} size="lg" isActiveSpeaker={sp.active} />
-                    <span className="font-bold text-xs text-[#2D231E] truncate w-full">{sp.name}</span>
-                    <Badge variant="terracotta" size="sm">{sp.role}</Badge>
+              <div className="grid grid-cols-3 gap-3">
+                {[...hosts, ...speakers].map(m => (
+                  <div key={m.userId} className="flex flex-col items-center gap-1.5 text-center">
+                    <div className="relative">
+                      <div className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-colors ${
+                        m.speaking ? 'border-[#E05638]' : 'border-[#F0E5DC]'
+                      }`}>
+                        <img
+                          src={m.avatar}
+                          alt={m.name}
+                          className="w-full h-full object-cover"
+                          onError={e => { e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name}`; }}
+                        />
+                      </div>
+                      {m.speaking && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#E05638] border-2 border-white animate-pulse" aria-label="Speaking" />
+                      )}
+                      {!m.micOn && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#9E8E85] border-2 border-white flex items-center justify-center">
+                          <MicOff className="w-2 h-2 text-white" />
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] font-bold text-[#2D231E] leading-tight truncate w-full">
+                      {m.name}
+                    </p>
+                    <p className="text-[9px] text-[#9E8E85] capitalize">{m.role}</p>
+
+                    {/* Host controls */}
+                    {isHost && m.userId !== (me?.username || me?.name) && (
+                      <div className="flex gap-1">
+                        {m.role === 'speaker' && (
+                          <button
+                            onClick={() => demoteMember(m.userId)}
+                            className="text-[9px] text-[#9E8E85] border border-[#F0E5DC] px-1.5 py-0.5 rounded-full hover:border-[#E05638] hover:text-[#E05638]"
+                          >
+                            Demote
+                          </button>
+                        )}
+                        <button
+                          onClick={() => kickMember(m.userId)}
+                          className="text-[9px] text-[#9E8E85] border border-[#F0E5DC] px-1.5 py-0.5 rounded-full hover:border-red-400 hover:text-red-500"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
-              </div>
 
-              {/* Interaction Bar: Emoji Reactions & Pin Button */}
-              <div className="pt-4 border-t border-[#F5ECE5] flex flex-wrap items-center justify-between gap-4">
-                
-                {/* Emojis */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#6B5E57]">Reactions:</span>
-                  {['👏', '💡', '❓', '🔥'].map(emoji => (
-                    <button
-                      key={emoji}
-                      onClick={() => handleTriggerReaction(emoji)}
-                      className="text-lg p-2 rounded-xl bg-[#FAF5F0] hover:bg-[#FFF0EB] border border-[#F0E5DC] transition-transform hover:scale-125"
-                    >
-                      {emoji}
-                    </button>
+                {hosts.length + speakers.length === 0 && (
+                  <p className="col-span-3 text-xs text-[#9E8E85] text-center py-4">No one on stage yet</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Listeners */}
+            {listeners.length > 0 && (
+              <Card variant="default" className="p-5 space-y-3">
+                <h2 className="font-heading font-bold text-sm text-[#2D231E] flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#9E8E85]" /> Listeners
+                  <Badge variant="default" size="sm">{listeners.length}</Badge>
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {listeners.map(m => (
+                    <div key={m.userId} className="flex items-center gap-1.5 bg-[#FAF5F0] px-2.5 py-1.5 rounded-full text-xs text-[#6B5E57]">
+                      <img
+                        src={m.avatar}
+                        alt={m.name}
+                        className="w-5 h-5 rounded-full"
+                        onError={e => { e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name}`; }}
+                      />
+                      {m.name}
+                    </div>
                   ))}
                 </div>
-
-                {/* Pin Moment Button */}
-                <Button 
-                  variant="amber" 
-                  size="sm"
-                  onClick={handlePinMoment}
-                  icon={Pin}
-                >
-                  Pin Moment 📌
-                </Button>
-              </div>
-
-              {/* Speaker Control Bar */}
-              <div className="pt-2 flex items-center justify-between">
-                <Button 
-                  variant={isMicOn ? "emerald" : "danger"} 
-                  size="md"
-                  onClick={() => setIsMicOn(!isMicOn)}
-                  icon={isMicOn ? Mic : MicOff}
-                >
-                  {isMicOn ? "Mute Mic" : "Unmute Mic"}
-                </Button>
-
-                {role === 'listener' && (
-                  <Button variant="secondary" size="md" onClick={handleRaiseHand} icon={Hand}>
-                    Raise Hand ✋
-                  </Button>
-                )}
-              </div>
-            </Card>
-
-            {/* Pinned Moments List */}
-            <Card variant="warm" className="space-y-3 p-5">
-              <h4 className="font-heading font-bold text-sm text-[#2D231E] flex items-center gap-1.5">
-                <Pin className="w-4 h-4 text-[#D97706]" />
-                Pinned Timestamps ({pinnedMoments.length})
-              </h4>
-              <div className="space-y-2">
-                {pinnedMoments.map((p, i) => (
-                  <div key={i} className="bg-white p-2.5 rounded-xl border border-[#F0E5DC] text-xs flex items-center justify-between">
-                    <span className="font-mono font-bold text-[#E05638]">{p.time}</span>
-                    <span className="text-[#6B5E57] truncate max-w-xs">{p.text}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
+              </Card>
+            )}
           </div>
 
-          {/* Right Column: Live Captions, Translations & Polls */}
-          <div className="lg:col-span-5 space-y-6">
-            
-            {/* Live Captions Box */}
-            <Card variant="default" className="space-y-4 p-5">
-              <div className="flex items-center justify-between border-b border-[#F5ECE5] pb-3">
-                <span className="font-heading font-bold text-sm text-[#2D231E] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#E05638]" />
-                  Live Speech Transcriber
-                </span>
+          {/* ── Right column: Captions + Controls ────────────────────── */}
+          <div className="lg:col-span-2 space-y-4">
 
-                {/* Translation Dropdown */}
-                <div className="flex items-center gap-1 text-xs">
-                  <Globe className="w-3.5 h-3.5 text-[#F59E0B]" />
-                  <select 
-                    value={targetLanguage}
-                    onChange={(e) => handleTranslateLanguage(e.target.value)}
-                    className="bg-[#FAF4EE] border border-[#F0E5DC] rounded-lg px-2 py-1 text-xs text-[#2D231E] font-medium"
-                  >
-                    <option value="English">English</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="Hindi">Hindi</option>
-                    <option value="French">French</option>
-                    <option value="Mandarin">Mandarin</option>
-                  </select>
-                </div>
+            {/* Live Captions panel */}
+            <Card variant="default" className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-heading font-bold text-sm text-[#2D231E] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#E05638]" /> Live Captions
+                </h2>
+                {captionStatus === 'reconnecting' && (
+                  <span className="text-[10px] text-amber-600 flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Reconnecting…
+                  </span>
+                )}
+                {captionStatus === 'listening' && (
+                  <span className="text-[10px] text-emerald-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Listening
+                  </span>
+                )}
+                {!speechSupported && (
+                  <span className="text-[10px] text-amber-600">Chrome/Edge only</span>
+                )}
               </div>
 
-              {/* Speech Recognition Warning or Fallback */}
-              {!speechSupported && (
-                <div className="bg-[#FEF3C7] text-[#D97706] p-3 rounded-xl text-xs space-y-2">
-                  <p className="font-bold flex items-center gap-1">
-                    <HelpCircle className="w-4 h-4" />
-                    Web Speech API not active in current browser.
-                  </p>
-                  <Button 
-                    variant="amber" 
-                    size="sm"
-                    onClick={() => addTranscriptLine("You (Host)", "Testing sample spoken transcript chunk!")}
-                  >
-                    Load Sample Transcript Chunk
-                  </Button>
-                </div>
-              )}
+              <CaptionPanel
+                lines={captionLines}
+                interims={captionInterims}
+                speechSupported={speechSupported}
+              />
+            </Card>
 
-              {/* Transcript Lines Scroll View */}
-              <div className="bg-[#FAF5F0] p-3 rounded-2xl border border-[#F0E5DC] max-h-56 overflow-y-auto space-y-2">
-                {transcriptLines.map((line) => (
-                  <div key={line.id} className="bg-white p-2.5 rounded-xl border border-[#F0E5DC] text-xs space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-bold">
-                      <span className="text-[#E05638]">{line.speaker}</span>
-                      <span className="text-[#9E8E85] font-mono">{line.time}</span>
+            {/* ── My Controls ──────────────────────────────────────────── */}
+            <Card variant="default" className="p-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+
+                {/* Mic button + wave */}
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={toggleMic}
+                    className={`relative p-4 rounded-2xl border-2 transition-all font-bold text-sm flex items-center gap-2 ${
+                      isMicOn
+                        ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669]'
+                        : 'bg-[#FAF5F0] border-[#F0E5DC] text-[#9E8E85]'
+                    }`}
+                    aria-label={isMicOn ? 'Turn mic off' : 'Turn mic on'}
+                  >
+                    {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                    <span className="text-xs hidden sm:inline">
+                      {isMicOn ? (level > 8 ? 'Speaking' : 'Mic on') : 'Mic off'}
+                    </span>
+                  </button>
+
+                  {/* Waveform — only visible when mic is on */}
+                  <div className={`transition-opacity ${isMicOn ? 'opacity-100' : 'opacity-0'}`}>
+                    <MicWave bands={bands} size="md" silent={!isMicOn || level < 2} />
+                  </div>
+                </div>
+
+                {/* Mic status text */}
+                <div className="flex-1 text-xs text-[#6B5E57] space-y-1">
+                  {micError && (
+                    <div className="flex items-start gap-1.5 text-red-600">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      {micError}
                     </div>
-                    <p className="text-[#2D231E]">
-                      {translatedLines[line.id] || line.text}
-                    </p>
-                  </div>
-                ))}
-
-                {/* Interim text in grey */}
-                {interimText && (
-                  <p className="text-xs text-[#9E8E85] italic p-1 animate-pulse">
-                    Listening... "{interimText}"
-                  </p>
-                )}
-              </div>
-
-              {/* Custom Phrase simulator input */}
-              <div className="flex gap-2">
-                <input 
-                  type="text"
-                  value={customSpeakInput}
-                  onChange={(e) => setCustomSpeakInput(e.target.value)}
-                  placeholder="Type simulated speech..."
-                  className="w-full bg-[#FAF5F0] px-3 py-2 rounded-xl text-xs border border-[#F0E5DC]"
-                />
-                <Button 
-                  variant="primary" 
-                  size="sm"
-                  onClick={() => {
-                    if (customSpeakInput) {
-                      addTranscriptLine("You (Host)", customSpeakInput);
-                      setCustomSpeakInput('');
-                    }
-                  }}
-                >
-                  Speak
-                </Button>
-              </div>
-            </Card>
-
-            {/* Live Polls & Quizzes */}
-            <Card variant="terracotta" className="space-y-4 p-5">
-              <div className="flex items-center justify-between border-b border-[#FCD9CE] pb-3">
-                <span className="font-heading font-bold text-sm text-[#2D231E] flex items-center gap-1.5">
-                  <BarChart2 className="w-4 h-4 text-[#E05638]" />
-                  Live Room Poll
-                </span>
-                <span className="text-[10px] bg-white px-2 py-0.5 rounded-full font-bold text-[#E05638]">ACTIVE</span>
-              </div>
-
-              <div className="space-y-3 text-xs">
-                <p className="font-bold text-[#2D231E]">{activePoll.question}</p>
-                
-                {/* Options Voting Buttons & Bar Chart */}
-                <div className="space-y-2">
-                  {activePoll.options.map((opt, idx) => {
-                    const totalVotes = activePoll.votes.reduce((a, b) => a + b, 0);
-                    const pct = totalVotes > 0 ? Math.round((activePoll.votes[idx] / totalVotes) * 100) : 0;
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleVotePoll(idx)}
-                        disabled={userVotedIndex !== null}
-                        className={`w-full text-left p-2.5 rounded-xl border transition-all relative overflow-hidden ${
-                          userVotedIndex === idx
-                            ? 'bg-[#E05638] text-white border-[#E05638]'
-                            : 'bg-white text-[#2D231E] border-[#FCD9CE] hover:bg-[#FAF5F0]'
-                        }`}
-                      >
-                        <div 
-                          className="absolute left-0 top-0 bottom-0 bg-[#E05638]/10 transition-all duration-300 pointer-events-none"
-                          style={{ width: `${pct}%` }}
-                        />
-                        <div className="flex items-center justify-between relative z-10 font-medium">
-                          <span>{opt}</span>
-                          <span className="font-bold font-mono">{pct}% ({activePoll.votes[idx]})</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  )}
+                  {silenceWarning && isMicOn && !micError && (
+                    <div className="flex items-start gap-1.5 text-amber-600">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      We can't hear you. Check your microphone or browser permissions.
+                    </div>
+                  )}
+                  {isMicOn && !micError && !silenceWarning && (
+                    <span className="text-emerald-600">
+                      {canSpeak ? '🎙 Your voice is being transcribed.' : '🎧 Mic ready — raise your hand to speak.'}
+                    </span>
+                  )}
+                  {!isMicOn && <span>Click the mic button to unmute.</span>}
                 </div>
+
+                {/* Role actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {role === 'listener' && (
+                    <Button variant="secondary" size="sm" icon={Hand} onClick={handleRaiseHand}>
+                      Raise Hand
+                    </Button>
+                  )}
+                  {isHost && (
+                    <Button variant="danger" size="sm" icon={X} onClick={handleEndRoom}>
+                      End Room
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Mic state label (explicit) */}
+              <div className="mt-3 pt-3 border-t border-[#F5ECE5] flex items-center gap-2 text-xs text-[#9E8E85]">
+                {!isMicOn && <><MicOff className="w-3.5 h-3.5" /> Mic off</>}
+                {isMicOn && level < 3 && <><Mic className="w-3.5 h-3.5 text-emerald-500" /> Mic on, listening…</>}
+                {isMicOn && level >= 3 && (
+                  <span className="flex items-center gap-2 text-emerald-600 font-medium">
+                    <Mic className="w-3.5 h-3.5" />
+                    Speaking
+                    <MicWave bands={bands} size="sm" color="#059669" />
+                  </span>
+                )}
+                <span className="ml-auto flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-[#F59E0B]" />
+                  {members.length} in room
+                </span>
               </div>
             </Card>
 
           </div>
-
         </div>
 
       </div>
-
-      {/* Host Approval Modal for Raised Hands */}
-      <Modal 
-        isOpen={showApprovalModal} 
-        onClose={() => setShowApprovalModal(false)}
-        title="Speaker Request"
-        subtitle="A listener has raised their hand to join the stage as a speaker."
-      >
-        <div className="space-y-4 pt-2">
-          <p className="text-sm font-semibold text-[#2D231E]">
-            Approve listener to speak in "{formattedTitle}"?
-          </p>
-          <div className="flex gap-3">
-            <Button 
-              variant="primary" 
-              size="md" 
-              className="w-full justify-center"
-              onClick={() => handleApproveSpeaker(handRaisedQueue[0] || { id: 99, name: "Student Listener" })}
-            >
-              Approve Speaker
-            </Button>
-            <Button 
-              variant="secondary" 
-              size="md" 
-              className="w-full justify-center"
-              onClick={() => setShowApprovalModal(false)}
-            >
-              Deny
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
     </div>
   );
 }
