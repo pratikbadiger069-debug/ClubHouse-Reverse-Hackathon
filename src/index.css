@@ -1,59 +1,94 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* ─────────────────────────────────────────────
+   Echo Design System — Clubhouse-inspired
+   Reference: clubhouse.com screenshots
+   Mood: warm cream · charcoal black · playful yellow
+   Font substitution: Nunito (rounded) for headings
+   ──────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+
 :root {
-  /* Design Tokens - Colors */
-  --token-color-bg: #FDFBF7;
-  --token-color-surface: #FFFFFF;
-  --token-color-surface-soft: #FAF4EE;
-  --token-color-primary: #E05638;
-  --token-color-primary-hover: #C9472B;
-  --token-color-primary-light: #FFF0EB;
-  --token-color-amber: #F59E0B;
-  --token-color-amber-light: #FEF3C7;
-  --token-color-text-main: #2D231E;
-  --token-color-text-subtle: #6B5E57;
-  --token-color-text-muted: #9E8E85;
-  --token-color-border: #F0E5DC;
-  --token-color-live: #10B981;
-  --token-color-purple: #8B5CF6;
+  /* ── Color Tokens ─────────────────────── */
+  /* Backgrounds */
+  --token-color-bg:           #F5F0E8; /* warm cream — reference desktop bg */
+  --token-color-surface:      #FFFFFF;
+  --token-color-surface-soft: #EDE8DE; /* deeper cream for section alternates */
+  --token-color-surface-dark: #1A1A1A; /* charcoal for footer */
+
+  /* Brand */
+  --token-color-primary:       #1A1A1A; /* charcoal black — fills buttons */
+  --token-color-primary-hover: #333333;
+  --token-color-accent:        #F5C518; /* Clubhouse yellow — hero, highlights */
+  --token-color-accent-hover:  #DDB010;
+
+  /* Text */
+  --token-color-text-main:   #1A1A1A;
+  --token-color-text-subtle: #555555;
+  --token-color-text-muted:  #888888;
+  --token-color-text-on-dark:#F5F0E8; /* cream text on charcoal bg */
+
+  /* Borders */
+  --token-color-border:      #E0D8CC;
+  --token-color-border-dark: #2E2E2E;
+
+  /* Functional */
+  --token-color-live:         #10B981; /* keep green for LIVE — accessible */
+  --token-color-live-light:   #ECFDF5;
+  --token-color-purple:       #8B5CF6; /* keep purple for communities */
   --token-color-purple-light: #F3E8FF;
 
-  /* Design Tokens - Fonts */
-  --token-font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --token-font-heading: 'Outfit', system-ui, -apple-system, sans-serif;
+  /* ── Typography Tokens ───────────────── */
+  /* Nunito = closest free Google Font to Clubhouse's proprietary rounded display font */
+  --token-font-heading: 'Nunito', system-ui, -apple-system, sans-serif;
+  --token-font-sans:    'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
-  /* Design Tokens - Border Radius & Shadows */
+  /* ── Shape Tokens ───────────────────── */
   --token-radius-pill: 9999px;
-  --token-radius-3xl: 2rem;
-  --token-radius-2xl: 1.5rem;
-  --token-radius-xl: 1rem;
-  
-  --token-shadow-soft: 0 10px 30px -5px rgba(224, 86, 56, 0.08), 0 4px 12px -2px rgba(45, 35, 30, 0.04);
-  --token-shadow-hover: 0 20px 40px -10px rgba(224, 86, 56, 0.16), 0 8px 24px -4px rgba(45, 35, 30, 0.08);
+  --token-radius-3xl:  2rem;   /* 32px */
+  --token-radius-2xl:  1.5rem; /* 24px */
+  --token-radius-xl:   1rem;   /* 16px */
+
+  /* ── Shadow Tokens ──────────────────── */
+  /* Reference uses very subtle shadows — almost flat */
+  --token-shadow-soft:  0 4px 16px -2px rgba(26, 26, 26, 0.08);
+  --token-shadow-hover: 0 12px 32px -4px rgba(26, 26, 26, 0.14);
+  --token-shadow-card:  0 2px 8px -1px rgba(26, 26, 26, 0.06);
+
+  /* ── Motion Tokens ──────────────────── */
+  /* All durations consistent — spring easing matches Clubhouse feel */
+  --token-motion-fast:   150ms;
+  --token-motion-base:   300ms;
+  --token-motion-slow:   600ms;
+  --token-motion-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --token-motion-ease:   cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @theme {
-  --font-sans: var(--token-font-sans);
+  --font-sans:    var(--token-font-sans);
   --font-heading: var(--token-font-heading);
 
-  --color-echo-bg: var(--token-color-bg);
-  --color-echo-surface: var(--token-color-surface);
+  --color-echo-bg:           var(--token-color-bg);
+  --color-echo-surface:      var(--token-color-surface);
   --color-echo-surface-soft: var(--token-color-surface-soft);
-  --color-echo-primary: var(--token-color-primary);
-  --color-echo-primary-hover: var(--token-color-primary-hover);
-  --color-echo-primary-light: var(--token-color-primary-light);
-  --color-echo-amber: var(--token-color-amber);
-  --color-echo-amber-light: var(--token-color-amber-light);
-  --color-echo-text: var(--token-color-text-main);
-  --color-echo-subtle: var(--token-color-text-subtle);
-  --color-echo-muted: var(--token-color-text-muted);
-  --color-echo-border: var(--token-color-border);
-  --color-echo-live: var(--token-color-live);
-  --color-echo-purple: var(--token-color-purple);
+  --color-echo-surface-dark: var(--token-color-surface-dark);
+  --color-echo-primary:      var(--token-color-primary);
+  --color-echo-primary-hover:var(--token-color-primary-hover);
+  --color-echo-accent:       var(--token-color-accent);
+  --color-echo-accent-hover: var(--token-color-accent-hover);
+  --color-echo-text:         var(--token-color-text-main);
+  --color-echo-subtle:       var(--token-color-text-subtle);
+  --color-echo-muted:        var(--token-color-text-muted);
+  --color-echo-on-dark:      var(--token-color-text-on-dark);
+  --color-echo-border:       var(--token-color-border);
+  --color-echo-border-dark:  var(--token-color-border-dark);
+  --color-echo-live:         var(--token-color-live);
+  --color-echo-live-light:   var(--token-color-live-light);
+  --color-echo-purple:       var(--token-color-purple);
   --color-echo-purple-light: var(--token-color-purple-light);
 }
 
+/* ── Base Styles ─────────────────────── */
 body {
   font-family: var(--token-font-sans);
   background-color: var(--token-color-bg);
@@ -62,44 +97,119 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6, .font-heading {
   font-family: var(--token-font-heading);
 }
 
-/* Custom Animations */
+/* ── Keyframe Animations ─────────────── */
+
+/* Mic wave bars — used in hero room widget */
 @keyframes wave-bar {
-  0%, 100% { height: 6px; }
-  50% { height: 24px; }
+  0%, 100% { height: 4px; }
+  50% { height: 20px; }
 }
 
+/* Gentle vertical float for decorative circles — matches Clubhouse avatar float */
 @keyframes float-slow {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
 }
 
+/* Faster float variant for stagger */
+@keyframes float-fast {
+  0%, 100% { transform: translateY(0px); }
+  33% { transform: translateY(-8px); }
+  66% { transform: translateY(-4px); }
+}
+
+/* Waving hand — logo or hero icon — rotates gently, matches Clubhouse hand wave */
+@keyframes wave-hand {
+  0%, 100% { transform: rotate(0deg); transform-origin: 70% 70%; }
+  20%       { transform: rotate(-15deg); }
+  40%       { transform: rotate(10deg); }
+  60%       { transform: rotate(-10deg); }
+  80%       { transform: rotate(6deg); }
+}
+
+/* Pulse ring for live indicators */
 @keyframes pulse-ring {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.1); opacity: 0.3; }
+  0%   { transform: scale(0.95); opacity: 0.8; }
+  50%  { transform: scale(1.12); opacity: 0.25; }
   100% { transform: scale(0.95); opacity: 0.8; }
 }
 
-.animate-wave-1 { animation: wave-bar 1.2s infinite ease-in-out 0.1s; }
-.animate-wave-2 { animation: wave-bar 1.2s infinite ease-in-out 0.3s; }
-.animate-wave-3 { animation: wave-bar 1.2s infinite ease-in-out 0.5s; }
-.animate-wave-4 { animation: wave-bar 1.2s infinite ease-in-out 0.2s; }
-.animate-wave-5 { animation: wave-bar 1.2s infinite ease-in-out 0.4s; }
+/* Page-load entrance — hero heading */
+@keyframes enter-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-.animate-float { animation: float-slow 4s ease-in-out infinite; }
-.animate-pulse-ring { animation: pulse-ring 2s infinite ease-in-out; }
+@keyframes enter-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
-/* Custom warm card & button utility styles */
+/* Looping accent circle bob (decorative bg elements) */
+@keyframes bob {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%       { transform: translateY(-12px) scale(1.02); }
+}
+
+/* ── Animation Utility Classes ───────── */
+
+/* Wave bars — staggered delays */
+.animate-wave-1 { animation: wave-bar 1.1s infinite ease-in-out 0.0s; }
+.animate-wave-2 { animation: wave-bar 1.1s infinite ease-in-out 0.2s; }
+.animate-wave-3 { animation: wave-bar 1.1s infinite ease-in-out 0.4s; }
+.animate-wave-4 { animation: wave-bar 1.1s infinite ease-in-out 0.1s; }
+.animate-wave-5 { animation: wave-bar 1.1s infinite ease-in-out 0.3s; }
+
+/* Float variants — use on scattered avatar circles */
+.animate-float       { animation: float-slow 5s ease-in-out infinite; }
+.animate-float-alt   { animation: float-fast 4s ease-in-out infinite 0.8s; }
+.animate-float-3     { animation: float-slow 6s ease-in-out infinite 1.4s; }
+
+/* Hand wave for logo icon */
+.animate-wave-hand   { animation: wave-hand 2s ease-in-out infinite; }
+
+/* Pulse ring for LIVE */
+.animate-pulse-ring  { animation: pulse-ring 2s infinite ease-in-out; }
+
+/* Page-load entrance — compose in components with style delays */
+.animate-enter-up    { animation: enter-up var(--token-motion-slow) var(--token-motion-spring) both; }
+.animate-enter-fade  { animation: enter-fade var(--token-motion-base) ease both; }
+
+/* Bob — decorative bg elements */
+.animate-bob         { animation: bob 7s ease-in-out infinite; }
+
+/* Prefers-reduced-motion: disable non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-alt,
+  .animate-float-3,
+  .animate-wave-hand,
+  .animate-bob {
+    animation: none;
+  }
+  .animate-enter-up,
+  .animate-enter-fade {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Card Utility ────────────────────── */
+/* Minimal shadow — close to flat, matches reference */
 .echo-card {
   background-color: var(--token-color-surface);
   border: 1px solid var(--token-color-border);
-  box-shadow: var(--token-shadow-soft);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--token-shadow-card);
+  transition: box-shadow var(--token-motion-base) var(--token-motion-ease),
+              transform var(--token-motion-base) var(--token-motion-ease);
 }
 
 .echo-card:hover {
@@ -107,42 +217,97 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   transform: translateY(-3px);
 }
 
+/* ── Button Utilities ────────────────── */
+/* Primary: charcoal fill, cream text — Clubhouse style */
 .btn-primary {
   background-color: var(--token-color-primary);
-  color: #FFFFFF;
+  color: var(--token-color-text-on-dark);
   font-family: var(--token-font-heading);
-  font-weight: 600;
-  padding: 0.875rem 1.75rem;
+  font-weight: 700;
+  padding: 0.75rem 1.75rem;
   border-radius: var(--token-radius-pill);
-  transition: all 0.2s ease;
-  box-shadow: 0 8px 20px -4px rgba(224, 86, 56, 0.35);
+  border: 2px solid var(--token-color-primary);
+  transition: background-color var(--token-motion-fast) ease,
+              transform var(--token-motion-fast) ease,
+              box-shadow var(--token-motion-fast) ease;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
 }
 
 .btn-primary:hover {
   background-color: var(--token-color-primary-hover);
+  border-color: var(--token-color-primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -4px rgba(224, 86, 56, 0.45);
+  box-shadow: 0 8px 20px -4px rgba(26, 26, 26, 0.25);
 }
 
+/* Secondary: outline black border, transparent bg — Clubhouse style */
 .btn-secondary {
-  background-color: #FFFFFF;
+  background-color: transparent;
   color: var(--token-color-text-main);
-  border: 1.5px solid var(--token-color-border);
+  border: 2px solid var(--token-color-primary);
   font-family: var(--token-font-heading);
-  font-weight: 600;
-  padding: 0.875rem 1.75rem;
+  font-weight: 700;
+  padding: 0.75rem 1.75rem;
   border-radius: var(--token-radius-pill);
-  transition: all 0.2s ease;
+  transition: background-color var(--token-motion-fast) ease,
+              transform var(--token-motion-fast) ease;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
 }
 
 .btn-secondary:hover {
-  background-color: var(--token-color-surface-soft);
-  border-color: #E2D4C8;
+  background-color: var(--token-color-primary);
+  color: var(--token-color-text-on-dark);
   transform: translateY(-2px);
 }
+
+/* Yellow accent button — for hero CTA, matches yellow screenshot variant */
+.btn-accent {
+  background-color: var(--token-color-accent);
+  color: var(--token-color-text-main);
+  font-family: var(--token-font-heading);
+  font-weight: 700;
+  padding: 0.75rem 1.75rem;
+  border-radius: var(--token-radius-pill);
+  border: 2px solid var(--token-color-accent);
+  transition: background-color var(--token-motion-fast) ease,
+              transform var(--token-motion-fast) ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.btn-accent:hover {
+  background-color: var(--token-color-accent-hover);
+  border-color: var(--token-color-accent-hover);
+  transform: translateY(-2px);
+}
+
+/* ── Scroll-reveal base state ────────── */
+/* JavaScript adds 'revealed' class via IntersectionObserver */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity var(--token-motion-slow) var(--token-motion-spring),
+              transform var(--token-motion-slow) var(--token-motion-spring);
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+

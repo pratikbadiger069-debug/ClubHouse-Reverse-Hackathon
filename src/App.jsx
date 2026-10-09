@@ -31,7 +31,7 @@ export default function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-[#FDFBF7] text-[#2D231E] flex flex-col font-sans selection:bg-[#E05638]/20 selection:text-[#E05638]">
+      <div className="min-h-screen bg-[#F5F0E8] text-[#1A1A1A] flex flex-col font-sans selection:bg-[#F5C518]/40 selection:text-[#1A1A1A]">
         
         {/* Sticky Navbar with Demo Mode Pill & Notifications */}
         <Navbar onOpenStartModal={handleOpenStartModal} />

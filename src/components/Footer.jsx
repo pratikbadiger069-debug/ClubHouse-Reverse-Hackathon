@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
-import { Volume2, Sparkles, Send, Check, Heart, Shield, Terminal } from 'lucide-react';
+import { Volume2, Sparkles, Send, Check } from 'lucide-react';
 
+/**
+ * Footer — Clubhouse-inspired charcoal dark footer
+ *
+ * Dark charcoal (#1A1A1A) background with cream (#F5F0E8) text
+ * Yellow (#F5C518) accent for logo icon text and CTA
+ * Newsletter form restyled with cream input border
+ * Footer nav links: cream on hover
+ * Bottom bar: muted cream-gray text
+ */
 export default function Footer({ onOpenStartModal }) {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
@@ -15,80 +24,79 @@ export default function Footer({ onOpenStartModal }) {
   };
 
   return (
-    <footer className="bg-[#2D231E] text-white pt-16 pb-12 border-t border-[#45362E] relative overflow-hidden">
-      {/* Soft Glow Ambient Orbs */}
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#E05638]/10 rounded-full blur-3xl pointer-events-none" />
+    <footer className="bg-[#1A1A1A] text-[#F5F0E8] pt-16 pb-12 border-t border-[#2E2E2E] relative overflow-hidden">
+      {/* Subtle yellow ambient glow */}
+      <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-[#F5C518]/5 rounded-full blur-3xl pointer-events-none" aria-hidden="true" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Top Newsletter & Pitch Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pb-12 border-b border-[#45362E]">
-          
-          {/* Brand Pitch Column */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Top: brand + newsletter */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pb-12 border-b border-[#2E2E2E]">
+
+          {/* Brand column */}
           <div className="lg:col-span-5 space-y-5">
-            <a href="#" className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#E05638] to-[#FF6B4A] flex items-center justify-center text-white shadow-md">
-                <Volume2 className="w-6 h-6" />
+            <a href="#" className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-[#F5C518] flex items-center justify-center">
+                <Volume2 className="w-5 h-5 text-[#1A1A1A]" />
               </div>
-              <div className="flex flex-col">
-                <span className="font-heading font-extrabold text-2xl tracking-tight text-white flex items-center gap-1.5">
-                  Echo
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse"></span>
+              <div className="flex flex-col leading-none">
+                <span className="font-heading font-black text-2xl text-[#F5F0E8] tracking-tight">
+                  echo
                 </span>
-                <span className="text-[11px] font-medium text-[#FFB6A3] tracking-wide uppercase">
-                  Live Audio • Permanent Knowledge
+                <span className="text-[9px] font-semibold text-[#888888] uppercase tracking-widest">
+                  live audio · permanent knowledge
                 </span>
               </div>
             </a>
 
-            <p className="text-sm text-[#D1C5BD] leading-relaxed max-w-md">
-              Echo bridges spontaneous audio conversations and permanent knowledge archives. Built with warm, friendly design tokens and real-time AI transcription.
+            <p className="text-sm text-[#888888] leading-relaxed max-w-md">
+              Echo bridges spontaneous audio conversations and permanent knowledge archives. Built with a warm, human design and real-time AI transcription.
             </p>
 
             <div className="pt-2">
-              <button 
+              <button
                 onClick={onOpenStartModal}
-                className="bg-[#E05638] hover:bg-[#C9472B] text-white font-heading font-bold text-xs px-6 py-3 rounded-full shadow transition-transform hover:scale-105 inline-flex items-center gap-2"
+                className="btn-accent text-sm px-6 py-3"
               >
                 <Sparkles className="w-4 h-4" />
-                Host a Free Echo Room Now
+                host a free echo room now
               </button>
             </div>
           </div>
 
-          {/* Newsletter Column */}
-          <div className="lg:col-span-7 bg-[#3B2F29] rounded-3xl p-6 sm:p-8 border border-[#524239] space-y-4">
+          {/* Newsletter column */}
+          <div className="lg:col-span-7 bg-[#2E2E2E] rounded-3xl p-6 sm:p-8 border border-[#3A3A3A] space-y-4">
             <div className="space-y-1">
-              <span className="text-xs font-bold text-[#FFB6A3] uppercase tracking-wider block flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
+              <span className="text-xs font-black text-[#F5C518] uppercase tracking-wider block flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
                 Echo Weekly Digest
               </span>
-              <h4 className="font-heading font-bold text-xl text-white">
+              <h4 className="font-heading font-black text-xl text-[#F5F0E8]">
                 Get top community audio recaps delivered to your inbox
               </h4>
-              <p className="text-xs text-[#D1C5BD]">
+              <p className="text-xs text-[#888888]">
                 No spam. Only 5-minute curated summaries of the best public Echo rooms.
               </p>
             </div>
 
             {subscribed ? (
-              <div className="bg-[#ECFDF5] text-[#047857] p-3.5 rounded-2xl border border-[#A7F3D0] text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <div className="bg-[#ECFDF5] text-[#047857] p-3.5 rounded-2xl border border-[#A7F3D0] text-xs font-bold flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#10B981]" />
                 You're subscribed! We'll send you next week's top audio recaps.
               </div>
             ) : (
               <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row items-center gap-3">
-                <input 
+                <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email address..."
                   required
-                  className="w-full bg-[#2D231E] border border-[#524239] text-white text-xs px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#E05638]/50"
+                  className="w-full bg-[#1A1A1A] border border-[#3A3A3A] text-[#F5F0E8] text-xs px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#F5C518]/40 placeholder-[#888888]"
                 />
-                <button 
+                <button
                   type="submit"
-                  className="w-full sm:w-auto bg-[#E05638] hover:bg-[#C9472B] text-white text-xs font-bold font-heading px-6 py-3 rounded-2xl transition-colors shrink-0 flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto btn-accent text-xs px-6 py-3 shrink-0"
                 >
                   <span>Subscribe</span>
                   <Send className="w-3.5 h-3.5" />
@@ -96,61 +104,58 @@ export default function Footer({ onOpenStartModal }) {
               </form>
             )}
           </div>
-
         </div>
 
-        {/* Links Navigation Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-12 border-b border-[#45362E] text-xs">
-          
+        {/* Links grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-12 border-b border-[#2E2E2E] text-xs">
           <div className="space-y-3">
-            <h5 className="font-heading font-bold text-sm text-white uppercase tracking-wider">Product</h5>
-            <ul className="space-y-2 text-[#D1C5BD]">
-              <li><a href="#how-it-works" className="hover:text-[#FFB6A3] transition-colors">How It Works</a></li>
-              <li><a href="#features" className="hover:text-[#FFB6A3] transition-colors">Live Transcriber</a></li>
-              <li><a href="#features" className="hover:text-[#FFB6A3] transition-colors">Soundbite Clipper</a></li>
-              <li><a href="#sample-recap" className="hover:text-[#FFB6A3] transition-colors">Sample Recap Card</a></li>
+            <h5 className="font-heading font-black text-sm text-[#F5F0E8] uppercase tracking-wider">Product</h5>
+            <ul className="space-y-2 text-[#888888]">
+              <li><a href="#how-it-works" className="hover:text-[#F5C518] transition-colors">How It Works</a></li>
+              <li><a href="#features" className="hover:text-[#F5C518] transition-colors">Live Transcriber</a></li>
+              <li><a href="#features" className="hover:text-[#F5C518] transition-colors">Soundbite Clipper</a></li>
+              <li><a href="#sample-recap" className="hover:text-[#F5C518] transition-colors">Sample Recap Card</a></li>
             </ul>
           </div>
 
           <div className="space-y-3">
-            <h5 className="font-heading font-bold text-sm text-white uppercase tracking-wider">Integrations</h5>
-            <ul className="space-y-2 text-[#D1C5BD]">
-              <li><a href="#features" className="hover:text-[#FFB6A3] transition-colors">Notion Sync</a></li>
-              <li><a href="#features" className="hover:text-[#FFB6A3] transition-colors">Slack Webhooks</a></li>
-              <li><a href="#features" className="hover:text-[#FFB6A3] transition-colors">Twitter / X Audio Clips</a></li>
-              <li><a href="#features" className="hover:text-[#FFB6A3] transition-colors">Markdown Export</a></li>
+            <h5 className="font-heading font-black text-sm text-[#F5F0E8] uppercase tracking-wider">Integrations</h5>
+            <ul className="space-y-2 text-[#888888]">
+              <li><a href="#features" className="hover:text-[#F5C518] transition-colors">Notion Sync</a></li>
+              <li><a href="#features" className="hover:text-[#F5C518] transition-colors">Slack Webhooks</a></li>
+              <li><a href="#features" className="hover:text-[#F5C518] transition-colors">Twitter / X Audio Clips</a></li>
+              <li><a href="#features" className="hover:text-[#F5C518] transition-colors">Markdown Export</a></li>
             </ul>
           </div>
 
           <div className="space-y-3">
-            <h5 className="font-heading font-bold text-sm text-white uppercase tracking-wider">Community</h5>
-            <ul className="space-y-2 text-[#D1C5BD]">
-              <li><a href="#" className="hover:text-[#FFB6A3] transition-colors">Public Echo Rooms</a></li>
-              <li><a href="#" className="hover:text-[#FFB6A3] transition-colors">Host Guidelines</a></li>
-              <li><a href="#" className="hover:text-[#FFB6A3] transition-colors">Discord Guild</a></li>
-              <li><a href="#" className="hover:text-[#FFB6A3] transition-colors">Beta Feedback</a></li>
+            <h5 className="font-heading font-black text-sm text-[#F5F0E8] uppercase tracking-wider">Community</h5>
+            <ul className="space-y-2 text-[#888888]">
+              <li><a href="#" className="hover:text-[#F5C518] transition-colors">Public Echo Rooms</a></li>
+              <li><a href="#" className="hover:text-[#F5C518] transition-colors">Host Guidelines</a></li>
+              <li><a href="#" className="hover:text-[#F5C518] transition-colors">Discord Guild</a></li>
+              <li><a href="#" className="hover:text-[#F5C518] transition-colors">Beta Feedback</a></li>
             </ul>
           </div>
 
           <div className="space-y-3">
-            <h5 className="font-heading font-bold text-sm text-white uppercase tracking-wider">Design System</h5>
-            <ul className="space-y-2 text-[#D1C5BD]">
-              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#E05638]"></span> Terracotta `#E05638`</li>
-              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#F59E0B]"></span> Amber `#F59E0B`</li>
-              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#FDFBF7]"></span> Cream `#FDFBF7`</li>
-              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#10B981]"></span> Live Emerald `#10B981`</li>
+            <h5 className="font-heading font-black text-sm text-[#F5F0E8] uppercase tracking-wider">Design System</h5>
+            <ul className="space-y-2 text-[#888888]">
+              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#F5C518] shrink-0" /> Yellow <code>#F5C518</code></li>
+              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#F5F0E8] shrink-0" /> Cream <code>#F5F0E8</code></li>
+              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#1A1A1A] border border-[#3A3A3A] shrink-0" /> Charcoal <code>#1A1A1A</code></li>
+              <li className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" /> Live Green <code>#10B981</code></li>
             </ul>
           </div>
-
         </div>
 
-        {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#A3958D]">
+        {/* Bottom bar */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#555555]">
           <p>© 2026 Echo Inc. All rights reserved. Crafted for live audio that leaves something behind.</p>
           <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-white transition-colors">Security</a>
+            <a href="#" className="hover:text-[#F5F0E8] transition-colors">Privacy Policy</a>
+            <a href="#" className="hover:text-[#F5F0E8] transition-colors">Terms of Service</a>
+            <a href="#" className="hover:text-[#F5F0E8] transition-colors">Security</a>
           </div>
         </div>
 

@@ -23,7 +23,7 @@ export default function FeedPage({ onOpenStartModal }) {
   }).sort((a, b) => b.score - a.score);
 
   return (
-    <div className="py-10 bg-[#FDFBF7] min-h-screen space-y-12">
+    <div className="py-10 bg-[#F5F0E8] min-h-screen space-y-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         
         {/* Feed Welcome Banner */}
@@ -34,10 +34,10 @@ export default function FeedPage({ onOpenStartModal }) {
                 <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
                 Personalized Room Feed
               </div>
-              <h1 className="font-heading font-extrabold text-3xl sm:text-4xl">
+              <h1 className="font-heading font-black text-3xl sm:text-4xl text-[#F5F0E8]">
                 Welcome back, {savedProfile.name || 'Alex'}! 👋
               </h1>
-              <p className="text-sm sm:text-base text-[#D1C5BD]">
+              <p className="text-sm sm:text-base text-[#888888]">
                 Here are the top active audio rooms and community recaps matching your interests in <strong className="text-white">{userInterests.join(', ')}</strong>.
               </p>
             </div>
@@ -63,8 +63,8 @@ export default function FeedPage({ onOpenStartModal }) {
         {/* Recommended Live & Upcoming Rooms Section */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading font-bold text-2xl text-[#2D231E] flex items-center gap-2">
-              <Flame className="w-6 h-6 text-[#E05638]" />
+            <h2 className="font-heading font-black text-2xl text-[#1A1A1A] flex items-center gap-2">
+              <Flame className="w-6 h-6 text-[#F5C518]" />
               Recommended Live & Scheduled Rooms
             </h2>
             <Link to="/rooms" className="text-xs font-bold text-[#E05638] hover:underline flex items-center gap-1">
@@ -133,7 +133,7 @@ export default function FeedPage({ onOpenStartModal }) {
         {/* Suggested Communities Section */}
         <section className="space-y-6 pt-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading font-bold text-2xl text-[#2D231E] flex items-center gap-2">
+            <h2 className="font-heading font-black text-2xl text-[#1A1A1A] flex items-center gap-2">
               <Users className="w-6 h-6 text-[#8B5CF6]" />
               Communities For Your Track
             </h2>
@@ -181,7 +181,7 @@ export default function FeedPage({ onOpenStartModal }) {
         {/* Top Past Recaps Feed */}
         <section className="space-y-6 pt-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading font-bold text-2xl text-[#2D231E] flex items-center gap-2">
+            <h2 className="font-heading font-black text-2xl text-[#1A1A1A] flex items-center gap-2">
               <Library className="w-6 h-6 text-[#F59E0B]" />
               Popular Past Audio Recaps
             </h2>

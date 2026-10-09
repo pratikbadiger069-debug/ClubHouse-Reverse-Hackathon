@@ -80,21 +80,21 @@ export default function RoomsPage({ onOpenStartModal }) {
   });
 
   return (
-    <div className="py-12 bg-[#FDFBF7] min-h-screen">
+    <div className="py-12 bg-[#F5F0E8] min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
         {/* Page Header */}
         <ScrollReveal animation="fade-up">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-[#F0E5DC]">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ECFDF5] text-[#10B981] text-xs font-bold uppercase tracking-wider border border-[#A7F3D0]">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ECFDF5] text-[#10B981] text-xs font-black uppercase tracking-wider border border-[#A7F3D0]">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse" />
                 Live Audio Directory
               </div>
-              <h1 className="text-3xl sm:text-4xl font-heading font-extrabold text-[#2D231E]">
+              <h1 className="text-3xl sm:text-4xl font-heading font-black text-[#1A1A1A]">
                 Active Echo Rooms
               </h1>
-              <p className="text-sm sm:text-base text-[#6B5E57] max-w-xl">
+              <p className="text-sm sm:text-base text-[#555555] max-w-xl">
                 Tune into live voice conversations or start your own. Every room automatically captures key insights into a permanent recap archive.
               </p>
             </div>
@@ -121,10 +121,10 @@ export default function RoomsPage({ onOpenStartModal }) {
                 role="tab"
                 aria-selected={activeCategory === cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E05638] ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1A1A] ${
                   activeCategory === cat
-                    ? 'bg-[#E05638] text-white shadow-md'
-                    : 'bg-white text-[#6B5E57] border border-[#F0E5DC] hover:border-[#E05638]/40'
+                    ? 'bg-[#1A1A1A] text-[#F5F0E8] shadow-md'
+                    : 'bg-white text-[#555555] border border-[#E0D8CC] hover:border-[#1A1A1A]/40'
                 }`}
               >
                 {cat}
@@ -141,7 +141,7 @@ export default function RoomsPage({ onOpenStartModal }) {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search live rooms..."
               aria-label="Search live audio rooms by topic or tag"
-              className="w-full bg-white pl-10 pr-4 py-2.5 rounded-full border border-[#F0E5DC] text-xs text-[#2D231E] placeholder-[#9E8E85] focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+              className="w-full bg-white pl-10 pr-4 py-2.5 rounded-full border border-[#E0D8CC] text-xs text-[#1A1A1A] placeholder-[#888888] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20"
             />
           </div>
         </div>
@@ -149,8 +149,8 @@ export default function RoomsPage({ onOpenStartModal }) {
         {/* Live Rooms Grid */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading font-bold text-xl text-[#2D231E] flex items-center gap-2">
-              <Radio className="w-5 h-5 text-[#E05638]" />
+            <h2 className="font-heading font-black text-xl text-[#1A1A1A] flex items-center gap-2">
+              <Radio className="w-5 h-5 text-[#10B981]" />
               Happening Right Now ({filteredLive.length})
             </h2>
           </div>
@@ -164,7 +164,7 @@ export default function RoomsPage({ onOpenStartModal }) {
                       
                       {/* Room Header & Live Pill */}
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#FFF0EB] text-[#E05638]">
+                        <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-[#EDE8DE] text-[#555555]">
                           {room.category}
                         </span>
                         <span className="flex items-center gap-1.5 text-xs font-bold text-[#10B981] bg-[#ECFDF5] px-2.5 py-1 rounded-full border border-[#A7F3D0]">
@@ -174,7 +174,7 @@ export default function RoomsPage({ onOpenStartModal }) {
                       </div>
 
                       {/* Title */}
-                      <h3 className="font-heading font-bold text-lg text-[#2D231E] leading-snug">
+                      <h3 className="font-heading font-black text-lg text-[#1A1A1A] leading-snug">
                         {room.title}
                       </h3>
 
@@ -192,14 +192,14 @@ export default function RoomsPage({ onOpenStartModal }) {
                       </div>
 
                       {/* Live Speech snippet */}
-                      <div className="bg-[#FAF4EE] p-3 rounded-2xl border border-[#F0E5DC] text-xs space-y-1">
-                        <span className="text-[10px] font-bold text-[#E05638] uppercase tracking-wider block">Real-time Audio Stream</span>
-                        <p className="text-[#6B5E57] italic">"{room.recentSnippet}"</p>
+                      <div className="bg-[#F5F0E8] p-3 rounded-2xl border border-[#E0D8CC] text-xs space-y-1">
+                        <span className="text-[10px] font-black text-[#1A1A1A] uppercase tracking-wider block">Real-time Audio Stream</span>
+                        <p className="text-[#555555] italic">"{room.recentSnippet}"</p>
                       </div>
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="pt-4 border-t border-[#F5ECE5] flex items-center justify-between">
+                    <div className="pt-4 border-t border-[#E0D8CC] flex items-center justify-between">
                       <div className="flex flex-wrap gap-1.5">
                         {room.tags.map(t => (
                           <span key={t} className="text-[10px] font-semibold bg-[#FAF0E8] text-[#6B5E57] px-2 py-0.5 rounded-md">
@@ -237,8 +237,8 @@ export default function RoomsPage({ onOpenStartModal }) {
 
         {/* Upcoming Scheduled Rooms */}
         <section className="space-y-6 pt-6">
-          <h2 className="font-heading font-bold text-xl text-[#2D231E] flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#F59E0B]" />
+          <h2 className="font-heading font-black text-xl text-[#1A1A1A] flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[#F5C518]" />
             Upcoming Scheduled Sessions
           </h2>
 
@@ -247,21 +247,21 @@ export default function RoomsPage({ onOpenStartModal }) {
               <Card key={room.id} variant="warm" className="flex flex-col justify-between space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#F59E0B]">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-[#888888]">
                       {room.category}
                     </span>
                     <span className="text-xs font-semibold text-[#6B5E57]">
                       {room.time}
                     </span>
                   </div>
-                  <h3 className="font-heading font-bold text-base text-[#2D231E]">
+                  <h3 className="font-heading font-black text-base text-[#1A1A1A]">
                     {room.title}
                   </h3>
                   <p className="text-xs text-[#9E8E85]">Hosted by <strong className="text-[#2D231E]">{room.host}</strong> • {room.scheduledBy}</p>
                 </div>
 
-                <div className="pt-3 border-t border-[#F0E5DC] flex items-center justify-between">
-                  <span className="text-xs text-[#E05638] font-bold flex items-center gap-1 cursor-pointer hover:underline">
+                <div className="pt-3 border-t border-[#E0D8CC] flex items-center justify-between">
+                  <span className="text-xs text-[#1A1A1A] font-black flex items-center gap-1 cursor-pointer hover:underline">
                     Set RSVP Reminder <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                   <Button variant="secondary" size="sm">

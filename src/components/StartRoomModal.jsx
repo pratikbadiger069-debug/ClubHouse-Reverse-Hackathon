@@ -63,26 +63,26 @@ export default function StartRoomModal({ isOpen, onClose }) {
       aria-modal="true"
       aria-labelledby="start-room-title"
     >
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#F0E5DC] shadow-2xl relative space-y-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#E0D8CC] shadow-2xl relative space-y-6 max-h-[90vh] overflow-y-auto">
 
         {/* Close */}
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-5 right-5 p-2 rounded-full text-[#9E8E85] hover:bg-[#FAF5F0] transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-full text-[#888888] hover:bg-[#EDE8DE] transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Header */}
         <div className="space-y-1">
-          <div className="w-12 h-12 rounded-2xl bg-[#FFF0EB] text-[#E05638] flex items-center justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-[#1A1A1A] text-[#F5C518] flex items-center justify-center">
             <Mic className="w-6 h-6" />
           </div>
-          <h3 id="start-room-title" className="font-heading font-extrabold text-2xl text-[#2D231E] pt-1">
+          <h3 id="start-room-title" className="font-heading font-black text-2xl text-[#1A1A1A] pt-1">
             Start an Echo Room
           </h3>
-          <p className="text-sm text-[#6B5E57]">
+          <p className="text-sm text-[#555555]">
             A private link is generated automatically — share it with anyone.
           </p>
         </div>
@@ -100,7 +100,7 @@ export default function StartRoomModal({ isOpen, onClose }) {
             onKeyDown={e => e.key === 'Enter' && handleLaunch()}
             placeholder="e.g. FAANG Placement Prep Q&A"
             autoFocus
-            className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+            className="w-full bg-[#F5F0E8] px-4 py-3 rounded-2xl border border-[#E0D8CC] text-sm text-[#1A1A1A] font-medium focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20"
           />
         </div>
 
@@ -115,7 +115,7 @@ export default function StartRoomModal({ isOpen, onClose }) {
             value={topic}
             onChange={e => setTopic(e.target.value)}
             placeholder="e.g. DSA, System Design, Placements"
-            className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+            className="w-full bg-[#F5F0E8] px-4 py-3 rounded-2xl border border-[#E0D8CC] text-sm text-[#1A1A1A] font-medium focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20"
           />
         </div>
 
@@ -128,7 +128,7 @@ export default function StartRoomModal({ isOpen, onClose }) {
             id="room-lang"
             value={language}
             onChange={e => setLanguage(e.target.value)}
-            className="w-full bg-[#FAF5F0] px-4 py-3 rounded-2xl border border-[#F0E5DC] text-sm text-[#2D231E] font-medium focus:outline-none focus:ring-2 focus:ring-[#E05638]/40"
+            className="w-full bg-[#F5F0E8] px-4 py-3 rounded-2xl border border-[#E0D8CC] text-sm text-[#1A1A1A] font-medium focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20"
           >
             {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
@@ -136,11 +136,11 @@ export default function StartRoomModal({ isOpen, onClose }) {
         </div>
 
         {/* Echo AI info */}
-        <div className="bg-[#FFF8F3] p-4 rounded-2xl border border-[#FCD9CE] flex items-start gap-3 text-xs">
-          <Sparkles className="w-4 h-4 text-[#E05638] shrink-0 mt-0.5" />
+        <div className="bg-[#F5C518]/15 p-4 rounded-2xl border border-[#F5C518]/30 flex items-start gap-3 text-xs">
+          <Sparkles className="w-4 h-4 text-[#1A1A1A] shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold text-[#2D231E]">Echo AI is always on.</span>
-            <span className="text-[#6B5E57]"> Live captions and a full recap are generated automatically when the room ends.</span>
+            <span className="font-black text-[#1A1A1A]">Echo AI is always on.</span>
+            <span className="text-[#555555]"> Live captions and a full recap are generated automatically when the room ends.</span>
           </div>
         </div>
 
