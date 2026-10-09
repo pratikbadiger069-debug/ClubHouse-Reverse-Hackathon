@@ -1,16 +1,72 @@
-# React + Vite
+# Echo | Live Audio Rooms That Leave Something Behind 🎙️✨
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **Reverse-Hackathon Project**: Solving the ephemeral audio problem of Clubhouse by turning live voice rooms into structured AI summaries, timestamped notes, searchable knowledge libraries, and interest-matched student communities.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Quick Start & Local Setup
 
-## React Compiler
+```bash
+# 1. Clone & Install dependencies
+npm install
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+# 2. Start Vite local development server
+npm run dev
 
-## Expanding the Oxlint configuration
+# 3. Build for production verification
+npm run build
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+---
+
+## ⚙️ Environment Variables & MOCK DEMO MODE
+
+Create a `.env` or `.env.local` file in the root directory (refer to `.env.example`):
+
+```env
+# Supabase Database & Realtime Credentials (Optional)
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+
+# Audio Provider Credentials (Optional)
+VITE_AUDIO_PROVIDER=mock
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
+DAILY_API_KEY=
+
+# LLM API Key for Serverless Recap Functions (Optional)
+GEMINI_API_KEY=
+OPENAI_API_KEY=
+```
+
+> ⚡ **Zero-Crash Guarantee (MOCK MODE)**: If any API key is omitted, Echo automatically operates in **Demo Data Mode** with seeded mock datasets, client-side Web Speech API captions, and simulated token generation. The app will never crash due to missing credentials.
+
+---
+
+## 🛠️ Tech Architecture & Stack
+
+- **Frontend**: React 18, Vite 6, Tailwind CSS v4
+- **Routing**: React Router DOM (`/`, `/onboarding`, `/home`, `/rooms`, `/room/:id`, `/recap/:id`, `/library`, `/communities`, `/community/:id`, `/match`, `/404`)
+- **Backend Serverless Functions**: `/api/recap.js`, `/api/translate.js`, `/api/token.js`
+- **Database & Realtime**: Supabase (with fallback in-memory store)
+- **Speech & Audio**: Browser Web Speech API + LiveKit/Daily token module wrapper
+
+---
+
+## 🔍 Simulated vs. Real Systems
+
+| Feature | Real API Mode (With Keys) | Demo Mode Fallback (No Keys) |
+| :--- | :--- | :--- |
+| **Recap Engine** | Calls Gemini 1.5 Flash / OpenAI API in `/api/recap.js` | Returns structured JSON recap from seeded transcript |
+| **Live Captions** | Native Web Speech API (`SpeechRecognition`) | Simulated transcript chunk generator button |
+| **Audio Rooms** | LiveKit / Daily token generation in `/api/token.js` | Simulated audio session with active mic feedback |
+| **Database** | PostgreSQL & Supabase Realtime WebSocket client | In-memory seeded store (`seedData.js`) |
+| **Live Translation** | Machine translation in `/api/translate.js` | Instant language prefix translator |
+
+---
+
+## 📄 Deliverables & Demo Walkthrough
+
+- **`.env.example`**: Clean key manifest with zero secrets
+- **`DEMO_SCRIPT.md`**: Step-by-step 2-minute judging script
+- **`supabase/seed.sql`**: Full database schema and SQL seed script
